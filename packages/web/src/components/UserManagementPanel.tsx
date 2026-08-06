@@ -13,10 +13,11 @@ interface UserItem {
 }
 
 interface UserManagementPanelProps {
-  currentRole: 'ADMIN' | 'TENANT_MGR' | 'DRIVER';
+  currentRole?: 'ADMIN' | 'TENANT_MGR' | 'DRIVER';
+  onClose?: () => void;
 }
 
-export function UserManagementPanel({ currentRole }: UserManagementPanelProps) {
+export function UserManagementPanel({ currentRole = 'ADMIN', onClose }: UserManagementPanelProps) {
   const [usersList, setUsersList] = useState<UserItem[]>([
     {
       id: 'usr-001',
@@ -158,6 +159,16 @@ export function UserManagementPanel({ currentRole }: UserManagementPanelProps) {
           >
             <UserPlus className="w-4 h-4" /> Add New User
           </button>
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold p-1.5 rounded-xl border border-slate-700 transition"
+              title="Close Directory"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 

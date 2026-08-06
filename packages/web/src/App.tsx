@@ -458,7 +458,7 @@ export default function App() {
               onClick={() => setActiveTab('DB_EXPLORER')}
               className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'DB_EXPLORER' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              <Database className="w-3.5 h-3.5 text-emerald-400" /> Database Tables (MySQL / Postgres)
+              <Database className="w-3.5 h-3.5 text-emerald-400" /> PostgreSQL DB Tables
             </button>
           )}
         </div>

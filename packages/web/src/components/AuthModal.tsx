@@ -144,8 +144,8 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <button
                   type="button"
-                  onClick={() => { setEmail('admin@switchyard.io'); setPassword('admin123'); }}
-                  className={`p-2 rounded-xl text-left border transition ${
+                  onClick={() => { setEmail('admin@switchyard.io'); setPassword('admin123'); setError(''); }}
+                  className={`p-2.5 rounded-xl text-left border transition ${
                     email === 'admin@switchyard.io'
                       ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
@@ -153,41 +153,41 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-white text-xs">Site Admin</div>
                   <div className="text-[10px] text-slate-400 font-mono">admin@switchyard.io</div>
-                  <div className="text-[9px] text-cyan-400 font-mono">Pass: admin123</div>
+                  <div className="text-[10px] text-cyan-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => { setEmail('fleet_mgr@logistics.com'); setPassword('fleet123'); }}
-                  className={`p-2 rounded-xl text-left border transition ${
+                  onClick={() => { setEmail('fleet_mgr@logistics.com'); setPassword('fleet123'); setError(''); }}
+                  className={`p-2.5 rounded-xl text-left border transition ${
                     email === 'fleet_mgr@logistics.com'
                       ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
                   }`}
                 >
-                  <div className="font-extrabold text-purple-300 text-xs">Fleet A Mgr</div>
+                  <div className="font-extrabold text-purple-300 text-xs">Fleet A Manager</div>
                   <div className="text-[10px] text-slate-400 font-mono">fleet_mgr@logistics.com</div>
-                  <div className="text-[9px] text-cyan-400 font-mono">Pass: fleet123</div>
+                  <div className="text-[10px] text-purple-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => { setEmail('delivery_mgr@express.com'); setPassword('express123'); }}
-                  className={`p-2 rounded-xl text-left border transition ${
+                  onClick={() => { setEmail('delivery_mgr@express.com'); setPassword('express123'); setError(''); }}
+                  className={`p-2.5 rounded-xl text-left border transition ${
                     email === 'delivery_mgr@express.com'
                       ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
                   }`}
                 >
-                  <div className="font-extrabold text-purple-300 text-xs">Fleet B Mgr</div>
+                  <div className="font-extrabold text-purple-300 text-xs">Fleet B Manager</div>
                   <div className="text-[10px] text-slate-400 font-mono">delivery_mgr@express.com</div>
-                  <div className="text-[9px] text-cyan-400 font-mono">Pass: express123</div>
+                  <div className="text-[10px] text-purple-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => { setEmail('driver1@logistics.com'); setPassword('driver123'); }}
-                  className={`p-2 rounded-xl text-left border transition ${
+                  onClick={() => { setEmail('driver1@logistics.com'); setPassword('driver123'); setError(''); }}
+                  className={`p-2.5 rounded-xl text-left border transition ${
                     email === 'driver1@logistics.com'
                       ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
@@ -195,13 +195,13 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-emerald-300 text-xs">Driver Dave</div>
                   <div className="text-[10px] text-slate-400 font-mono">driver1@logistics.com</div>
-                  <div className="text-[9px] text-cyan-400 font-mono">Pass: driver123</div>
+                  <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => { setEmail('driver2@logistics.com'); setPassword('driver456'); }}
-                  className={`p-2 rounded-xl text-left border transition col-span-2 ${
+                  onClick={() => { setEmail('driver2@logistics.com'); setPassword('driver456'); setError(''); }}
+                  className={`p-2.5 rounded-xl text-left border transition col-span-2 ${
                     email === 'driver2@logistics.com'
                       ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
@@ -209,7 +209,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-emerald-300 text-xs">Driver Alex (Truck MH-12-AB-1004)</div>
                   <div className="text-[10px] text-slate-400 font-mono">driver2@logistics.com</div>
-                  <div className="text-[9px] text-cyan-400 font-mono">Pass: driver456</div>
+                  <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
                 </button>
               </div>
             </div>

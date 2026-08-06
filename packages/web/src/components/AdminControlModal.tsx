@@ -3,12 +3,22 @@ import { Plus, Edit2, Zap, Building2, ShieldCheck, DollarSign, Check, X, Server,
 
 interface AdminControlModalProps {
   onClose: () => void;
-  onUpdateSiteCap: (newCap: number) => void;
-  onAddCharger: (charger: any) => void;
-  onUpdateEntitlement: (tenant: string, newFloor: number) => void;
+  onUpdateSiteCap?: (newCap: number) => void;
+  onAddCharger?: (charger: any) => void;
+  onUpdateEntitlement?: (tenant: string, newFloor: number) => void;
+  siteCapacityKw?: number;
+  onUpdateCapacity?: (newCap: number) => void;
+  role?: string;
+  controlTier?: number;
+  onUpdateTier?: (tier: number) => void;
 }
 
-export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUpdateEntitlement }: AdminControlModalProps) {
+export function AdminControlModal({
+  onClose,
+  onUpdateSiteCap,
+  onAddCharger,
+  onUpdateEntitlement
+}: AdminControlModalProps) {
   const [activeTab, setActiveTab] = useState<'SITES' | 'CHARGERS' | 'ENTITLEMENTS' | 'INVITE_TENANT'>('SITES');
 
   // Form states
@@ -31,14 +41,14 @@ export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUp
 
   const handleSaveSite = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateSiteCap(siteCap);
+    onUpdateSiteCap?.(siteCap);
     setSuccessMessage(`Site capacity updated to ${siteCap} kW successfully!`);
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   const handleCreateCharger = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddCharger({
+    onAddCharger?.({
       ocppId: newOcppId,
       maxKw: newMaxKw,
       circuit: newCircuit,
@@ -51,7 +61,7 @@ export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUp
 
   const handleSaveEntitlement = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateEntitlement(selectedTenant, newFloorKw);
+    onUpdateEntitlement?.(selectedTenant, newFloorKw);
     setSuccessMessage(`${selectedTenant} floor entitlement updated to ${newFloorKw} kW!`);
     setTimeout(() => setSuccessMessage(''), 3000);
   };

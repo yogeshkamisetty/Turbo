@@ -22,7 +22,7 @@ export function createSocketConnection(): Socket {
   });
 }
 
-export async function loginAsRole(email: string, pass: string = 'password123') {
+export async function loginAsRole(email: string, pass: string) {
   try {
     const res = await apiClient.post('/auth/login', { email, pass });
     if (res.data?.access_token) {
@@ -72,22 +72,34 @@ export async function loginAsRole(email: string, pass: string = 'password123') {
     },
   };
 
-  const matched = userMap[email] || {
-    role: email.includes('admin') ? 'ADMIN' : email.includes('mgr') ? 'TENANT_MGR' : 'DRIVER',
-    name: email.split('@')[0],
-    tenantName: 'Logistics Fleet A',
-    tenantId: '11111111-1111-1111-1111-111111111111',
-  };
+  const matched = userMap[email];
+
+  // STRICT PASSWORD VERIFICATION: Fail if user exists but password doesn't match!
+  if (matched) {
+    if (matched.pass && matched.pass !== pass) {
+      return null; // Password mismatch -> authentication fails
+    }
+  } else {
+    // Require valid password length for unmapped accounts
+    if (!pass || pass.length < 4) {
+      return null;
+    }
+  }
+
+  const role = matched ? matched.role : (email.includes('admin') ? 'ADMIN' : email.includes('mgr') ? 'TENANT_MGR' : 'DRIVER');
+  const name = matched ? matched.name : email.split('@')[0];
+  const tenantName = matched ? matched.tenantName : 'Logistics Fleet A';
+  const tenantId = matched ? matched.tenantId : '11111111-1111-1111-1111-111111111111';
 
   const fallbackPayload = {
     access_token: 'demo_jwt_bearer_token_' + Date.now(),
     user: {
       email,
       sub: 'demo-user-id-' + Math.random().toString().slice(2, 6),
-      role: matched.role,
-      name: matched.name,
-      tenantName: matched.tenantName,
-      tenantId: matched.tenantId,
+      role,
+      name,
+      tenantName,
+      tenantId,
     }
   };
   setAuthToken(fallbackPayload.access_token);
