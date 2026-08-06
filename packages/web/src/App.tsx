@@ -590,6 +590,57 @@ export default function App() {
               </div>
             </div>
 
+            {/* 6. Charging Session Board (State Lifecycle Board) */}
+            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-cyan-400" /> Charging Session Board (Real-Time State Lifecycle)
+                  </h3>
+                  <p className="text-xs text-slate-400">Mirrors exact OCPP 1.6-J hardware states across all site chargers</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5 text-[11px] font-bold">
+                  <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Queued (1)</span>
+                  <span className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">Connected (1)</span>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging - Optimized (3)</span>
+                  <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">Throttled (Grid Limit) (1)</span>
+                  <span className="px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Complete (2)</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2 text-xs">
+                <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Queued</div>
+                  <div className="font-bold text-white">Van MH-12-AB-1003</div>
+                  <div className="text-[11px] text-amber-400">0.0 kW (Waiting 6A Floor)</div>
+                </div>
+
+                <div className="bg-slate-950 p-3 rounded-xl border border-blue-500/30 space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Connected</div>
+                  <div className="font-bold text-white">CP-005 (Standby)</div>
+                  <div className="text-[11px] text-slate-400">OCPP Cable Plugged</div>
+                </div>
+
+                <div className="bg-slate-950 p-3 rounded-xl border border-emerald-500/30 space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Charging - Optimized</div>
+                  <div className="font-bold text-white">Truck MH-12-AB-1004</div>
+                  <div className="text-[11px] text-emerald-400">18.2 kW (Rank #1 MILP)</div>
+                </div>
+
+                <div className="bg-slate-950 p-3 rounded-xl border border-amber-500/30 space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Throttled (Grid Limit)</div>
+                  <div className="font-bold text-white">Van MH-12-AB-1002</div>
+                  <div className="text-[11px] text-amber-300">11.0 kW (Cap Protected)</div>
+                </div>
+
+                <div className="bg-slate-950 p-3 rounded-xl border border-cyan-500/30 space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Complete</div>
+                  <div className="font-bold text-white">Express Van B-04</div>
+                  <div className="text-[11px] text-cyan-300">100% Target SoC Met</div>
+                </div>
+              </div>
+            </div>
+
             {/* Timing of EVs & Priority Schedule Table */}
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
               <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
@@ -616,7 +667,7 @@ export default function App() {
                       <td className="p-3 font-bold text-cyan-400">95%</td>
                       <td className="p-3 font-bold text-emerald-400">18.2 kW</td>
                       <td className="p-3 font-bold text-purple-400">Rank #1 (Highest)</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging</span></td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging - Optimized</span></td>
                     </tr>
                     <tr className="hover:bg-slate-900/50">
                       <td className="p-3 font-bold text-white">Van MH-12-AB-1001</td>
@@ -625,7 +676,7 @@ export default function App() {
                       <td className="p-3 font-bold text-cyan-400">90%</td>
                       <td className="p-3 font-bold text-emerald-400">12.5 kW</td>
                       <td className="p-3 font-bold text-purple-400">Rank #2</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging</span></td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging - Optimized</span></td>
                     </tr>
                     <tr className="hover:bg-slate-900/50">
                       <td className="p-3 font-bold text-white">Van MH-12-AB-1002</td>
@@ -634,7 +685,7 @@ export default function App() {
                       <td className="p-3 font-bold text-cyan-400">85%</td>
                       <td className="p-3 font-bold text-emerald-400">11.0 kW</td>
                       <td className="p-3 font-bold text-purple-400">Rank #3</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging</span></td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">Throttled (Grid Limit)</span></td>
                     </tr>
                     <tr className="hover:bg-slate-900/50">
                       <td className="p-3 font-bold text-white">Van MH-12-AB-1003</td>
@@ -642,8 +693,8 @@ export default function App() {
                       <td className="p-3">07:15 AM (Flexible)</td>
                       <td className="p-3 font-bold text-cyan-400">80%</td>
                       <td className="p-3 font-bold text-amber-400">0.0 kW</td>
-                      <td className="p-3 font-bold text-slate-400">Rank #4 (Paused)</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">Paused in 6A Queue</span></td>
+                      <td className="p-3 font-bold text-slate-400">Rank #4 (Queued)</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Queued</span></td>
                     </tr>
                   </tbody>
                 </table>
