@@ -214,7 +214,11 @@ export default function App() {
 
   const handleLoginSuccess = (loggedInUser: any) => {
     setUser(loggedInUser);
-    setRole(loggedInUser.role || 'ADMIN');
+    const newRole = loggedInUser.role || 'ADMIN';
+    setRole(newRole);
+    if (newRole === 'DRIVER') {
+      setActiveTab('LIVE');
+    }
     setShowAuthModal(false);
   };
 
@@ -297,12 +301,14 @@ export default function App() {
           >
             <BarChart3 className="w-3.5 h-3.5" /> ACN Benchmark
           </button>
-          <button
-            onClick={() => setActiveTab('DB_EXPLORER')}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'DB_EXPLORER' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
-          >
-            <Database className="w-3.5 h-3.5 text-emerald-400" /> PostgreSQL DB Tables
-          </button>
+          {role !== 'DRIVER' && (
+            <button
+              onClick={() => setActiveTab('DB_EXPLORER')}
+              className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'DB_EXPLORER' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-400" /> PostgreSQL DB Tables
+            </button>
+          )}
         </div>
 
         {/* Control Tier & Liveness Header Pill */}
@@ -872,7 +878,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'DB_EXPLORER' && <DatabaseExplorer userRole={role} />}
+        {activeTab === 'DB_EXPLORER' && role !== 'DRIVER' && <DatabaseExplorer userRole={role} />}
 
       </main>
 
