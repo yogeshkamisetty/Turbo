@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line } from 'recharts';
-import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle, LogOut, User } from 'lucide-react';
+import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle, LogOut, User, BatteryCharging, Building2, Truck, BellRing, DollarSign, Activity, CheckCircle2, ChevronRight } from 'lucide-react';
 import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, fetchBenchmark, createSocketConnection } from './api/client';
 import { AuthModal } from './components/AuthModal';
 
 export default function App() {
-  const [user, setUser] = useState<any>(null); // Current authenticated user session
+  const [user, setUser] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(true);
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
-  const [tenantFilter, setTenantFilter] = useState<string>('ALL');
-  const [controlTier, setControlTier] = useState<number>(2); // 2: Cloud MILP (Green), 1: Gateway Greedy (Amber), 0: Offline (Red)
+  const [controlTier, setControlTier] = useState<number>(2);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'LIVE' | 'BENCHMARK' | 'COPILOT'>('LIVE');
   const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
   const [copilotQuery, setCopilotQuery] = useState<string>('Why was my fleet throttled last night?');
   const [copilotResult, setCopilotResult] = useState<any>(null);
   const [copilotLoading, setCopilotLoading] = useState<boolean>(false);
-  const [activeConflict, setActiveConflict] = useState<any>(null);
 
-  // Liveness Affordances State
+  // Liveness & State
   const [sessions, setSessions] = useState<any[]>([]);
   const [powerHistory, setPowerHistory] = useState<any[]>([]);
   const [cycleCount, setCycleCount] = useState<number>(0);
@@ -28,6 +26,17 @@ export default function App() {
   const [updatedSessionIds, setUpdatedSessionIds] = useState<Set<string>>(new Set());
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [benchmarkMetrics, setBenchmarkMetrics] = useState<any>(null);
+  const [driverNotifications, setDriverNotifications] = useState<any[]>([
+    { id: 1, time: '13:15', text: 'Charging started at 12.5 kW. Estimated full charge at 06:00 AM.', type: 'info' },
+    { id: 2, time: '13:18', text: 'Power supply temporarily adjusted to 11.0 kW to prioritize emergency delivery vehicle departure.', type: 'warn' },
+  ]);
+
+  // Pricing conditions for Admin
+  const pricingConditions = [
+    { period: 'Peak Hours (18:00 - 22:00)', price: '₹11.80 / kWh', demandCharge: '₹15.00 / kW', carbon: '650 gCO2/kWh', status: 'Active' },
+    { period: 'Solar Peak (10:00 - 16:00)', price: '₹5.20 / kWh', demandCharge: '₹15.00 / kW', carbon: '220 gCO2/kWh', status: 'Low Carbon' },
+    { period: 'Off-Peak Night (22:00 - 06:00)', price: '₹4.10 / kWh', demandCharge: '₹15.00 / kW', carbon: '420 gCO2/kWh', status: 'Economy' },
+  ];
 
   // ACN Benchmark series
   const acnBenchmarkData = benchmarkMetrics?.series || [
@@ -72,10 +81,6 @@ export default function App() {
       // Connect Socket.IO
       const socket = createSocketConnection();
       
-      socket.on('connect', () => {
-        addEventLog(`Connected to API Gateway as ${user.email}`, 'success');
-      });
-
       socket.on('site:power_update', (data: any) => {
         setLastSocketTimestamp(Date.now());
         setControlTier(data.tier ?? 2);
@@ -95,8 +100,6 @@ export default function App() {
             cap: data.siteCapKw || 100
           }
         ]);
-
-        addEventLog(`Optimization Cycle #${cycleCount + 1} — Total ${data.totalAllocatedKw || 0} kW allocated`, 'info');
       });
 
       socket.on('allocation:update', (data: any) => {
@@ -112,12 +115,13 @@ export default function App() {
           });
         }, 1500);
 
-        addEventLog(`Session ${data.sessionId.slice(0, 6)} allocated ${data.allocatedKw} kW (${data.state})`, 'info');
-      });
-
-      socket.on('promise:conflict', (data: any) => {
-        setActiveConflict(data);
-        addEventLog(`D3 Charge Promise Conflict on Session ${data.sessionId.slice(0, 6)}`, 'warn');
+        // Add notification for driver if kW rate changed due to priority
+        if (data.allocatedKw < 12.5) {
+          setDriverNotifications(prev => [
+            { id: Date.now(), time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), text: `Power supply temporarily adjusted to ${data.allocatedKw} kW to prioritize high-priority emergency vehicle departure.`, type: 'warn' },
+            ...prev
+          ]);
+        }
       });
 
       return () => { socket.disconnect(); };
@@ -129,7 +133,6 @@ export default function App() {
   const handleLoginSuccess = (loggedInUser: any) => {
     setUser(loggedInUser);
     setRole(loggedInUser.role || 'ADMIN');
-    setTenantFilter(loggedInUser.role === 'ADMIN' ? 'ALL' : 'Logistics Fleet A');
     setShowAuthModal(false);
   };
 
@@ -138,14 +141,6 @@ export default function App() {
     setShowAuthModal(true);
     setSessions([]);
     setPowerHistory([]);
-  };
-
-  const addEventLog = (text: string, type: 'info' | 'warn' | 'success' = 'info') => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setEventFeed(prev => [
-      { id: Math.random().toString(), time: timeStr, text, type },
-      ...prev.slice(0, 30)
-    ]);
   };
 
   const handleWhyClick = async (session: any) => {
@@ -175,11 +170,13 @@ export default function App() {
     setCopilotLoading(false);
   };
 
-  const filteredSessions = tenantFilter === 'ALL'
-    ? sessions
-    : sessions.filter(s => s.tenant === tenantFilter || s.tenantId === '11111111-1111-1111-1111-111111111111');
+  // Filtered sessions based on role
+  const driverSession = sessions.find(s => s.id === 's1') || sessions[0] || {
+    id: 's1', vehicle: 'Van MH-12-AB-1001', tenant: 'Logistics Fleet A', charger: 'CP-001', currentSoc: 42, targetSoc: 90, allocatedKw: 12.5, state: 'Charging', departureTime: '06:00 AM'
+  };
 
-  const latestPower = powerHistory.length > 0 ? powerHistory[powerHistory.length - 1] : { total: 0, cap: 100 };
+  const tenantSessions = sessions.filter(s => s.tenant === 'Logistics Fleet A' || s.tenantId === '11111111-1111-1111-1111-111111111111');
+  const latestPower = powerHistory.length > 0 ? powerHistory[powerHistory.length - 1] : { total: 85.1, cap: 100, tenantA: 41.7, tenantB: 25.1, tenantC: 18.3 };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
@@ -210,7 +207,7 @@ export default function App() {
             onClick={() => setActiveTab('LIVE')}
             className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'LIVE' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <Layers className="w-3.5 h-3.5" /> Live Site View
+            <Layers className="w-3.5 h-3.5" /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab('BENCHMARK')}
@@ -251,20 +248,16 @@ export default function App() {
             <Clock className="w-3.5 h-3.5 text-cyan-400" />
             <span>Updated {secondsAgo}s ago</span>
           </div>
-
-          <div className="text-xs text-cyan-400 font-bold border-l border-slate-800 pl-3">
-            Cycle #{cycleCount}
-          </div>
         </div>
 
-        {/* Logged In User Account Badge */}
+        {/* Logged In User Account & Role Badge */}
         {user ? (
           <div className="flex items-center space-x-3 bg-slate-900/90 p-1.5 pl-3 rounded-xl border border-slate-800">
             <div className="flex items-center space-x-2 text-xs">
               <User className="w-4 h-4 text-cyan-400" />
               <div>
                 <div className="font-bold text-white leading-none">{user.name || user.email}</div>
-                <div className="text-[10px] text-cyan-400 font-semibold">{user.role}</div>
+                <div className="text-[10px] text-cyan-400 font-semibold">{user.role === 'ADMIN' ? 'Site Admin' : user.role === 'TENANT_MGR' ? 'Tenant Manager' : 'EV Driver'}</div>
               </div>
             </div>
             <button
@@ -285,191 +278,311 @@ export default function App() {
         )}
       </header>
 
-      {/* Main Container */}
+      {/* Main Dashboard Container */}
       <main className="flex-1 p-6 space-y-6 max-w-7xl w-full mx-auto z-10">
 
-        {activeTab === 'LIVE' && (
-          <>
-            {/* Metric Cards Grid */}
+        {/* ========================================================================= */}
+        {/* DASHBOARD 1: SITE ADMIN DASHBOARD (ADMIN Role)                            */}
+        {/* ========================================================================= */}
+        {role === 'ADMIN' && activeTab === 'LIVE' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  <Building2 className="w-6 h-6 text-cyan-400" /> Site Admin Master Command Center
+                </h2>
+                <p className="text-xs text-slate-400">Total site capacity management, company power distribution & tariff conditions</p>
+              </div>
+              <span className="text-xs px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
+                Site Capacity: 100 kW Contracted
+              </span>
+            </div>
+
+            {/* Top Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden group hover:border-cyan-500/40 transition-all">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Site Real-Time Draw</div>
-                <div className="text-3xl font-black text-white mt-1.5 flex items-baseline gap-1">
-                  {latestPower.total} <span className="text-sm font-medium text-slate-400">kW / {latestPower.cap} kW</span>
-                </div>
-                <div className="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden p-0.5 border border-slate-700/50">
-                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (latestPower.total / (latestPower.cap || 100)) * 100)}%` }}></div>
-                </div>
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Registered Chargers</div>
+                <div className="text-3xl font-black text-white mt-1.5">8 <span className="text-sm font-medium text-emerald-400">(8 Online)</span></div>
+                <div className="text-xs text-slate-400 mt-2">100% OCPP 1.6-J Compliant</div>
               </div>
 
-              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden group hover:border-emerald-500/40 transition-all">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">D1 Entitlement Floors</div>
-                <div className="text-3xl font-black text-emerald-400 mt-1.5 flex items-baseline gap-2">
-                  90 kW <span className="text-xs font-normal text-slate-400">guaranteed</span>
-                </div>
-                <p className="text-xs text-slate-400 mt-3 font-medium flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> 10 kW Surplus Pool active
-                </p>
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Companies</div>
+                <div className="text-3xl font-black text-cyan-400 mt-1.5">3 Fleets</div>
+                <div className="text-xs text-slate-400 mt-2">D1 Entitlement Floors Active</div>
               </div>
 
-              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden group hover:border-blue-500/40 transition-all">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Chargers</div>
-                <div className="text-3xl font-black text-white mt-1.5 flex items-baseline gap-2">
-                  {filteredSessions.length} <span className="text-xs text-amber-400 font-bold">({filteredSessions.filter(s => s.state === 'Paused').length} Paused)</span>
-                </div>
-                <p className="text-xs text-slate-400 mt-3 font-medium">IEC 61851 6A floor enforced</p>
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Power Consumption</div>
+                <div className="text-3xl font-black text-white mt-1.5">{latestPower.total} kW</div>
+                <div className="text-xs text-slate-400 mt-2">Peak Demand Target: 100 kW</div>
               </div>
 
-              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg flex flex-col justify-between hover:border-purple-500/40 transition-all">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">D1 Billing & Credits</div>
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg flex flex-col justify-between">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Billing & Credits</div>
                 <button 
                   onClick={() => setShowInvoiceModal(true)}
-                  className="mt-3 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition-all transform active:scale-95"
+                  className="mt-2 text-xs bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition"
                 >
-                  <FileText className="w-4 h-4" /> View Invoice & Credits
+                  <FileText className="w-4 h-4" /> View Master Invoices
                 </button>
               </div>
             </div>
 
-            {/* Live Stacked Power Chart & Event Feed Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                      Live Site Power & Multi-Tenant Stack
-                    </h2>
-                    <p className="text-xs text-slate-400">Real-time fair allocation under 100 kW grid constraint</p>
-                  </div>
-                  <div className="flex items-center space-x-4 text-xs font-semibold">
-                    <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500"></span> Tenant A</span>
-                    <span className="flex items-center gap-1.5 text-purple-400"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500"></span> Tenant B</span>
-                    <span className="flex items-center gap-1.5 text-amber-400"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500"></span> Tenant C</span>
-                  </div>
+            {/* Companies Consuming Power Breakdown */}
+            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
+              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <Activity className="w-5 h-5 text-cyan-400" /> Companies Power Consumption Breakdown
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+                  <div className="text-xs font-semibold text-cyan-400">Logistics Fleet A</div>
+                  <div className="text-2xl font-black text-white mt-1">{latestPower.tenantA || 41.7} kW</div>
+                  <div className="text-[10px] text-slate-400 mt-1">Contracted Floor: 40.0 kW</div>
                 </div>
-
-                <div className="h-72 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={powerHistory}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="time" stroke="#64748b" fontSize={11} />
-                      <YAxis stroke="#64748b" fontSize={11} domain={[0, 120]} />
-                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
-                      <ReferenceLine y={latestPower.cap || 100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `${latestPower.cap || 100} kW Site Limit`, fill: '#ef4444', fontSize: 12, position: 'top', fontWeight: 'bold' }} />
-                      <Area type="monotone" dataKey="tenantA" stackId="1" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.5} />
-                      <Area type="monotone" dataKey="tenantB" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
-                      <Area type="monotone" dataKey="tenantC" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.5} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+                  <div className="text-xs font-semibold text-purple-400">Delivery Express B</div>
+                  <div className="text-2xl font-black text-white mt-1">{latestPower.tenantB || 25.1} kW</div>
+                  <div className="text-[10px] text-slate-400 mt-1">Contracted Floor: 30.0 kW</div>
                 </div>
-              </div>
-
-              {/* Real-Time Live Event Feed Panel */}
-              <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Terminal className="w-4 h-4 text-cyan-400" /> Live WebSocket Event Feed
-                    </h3>
-                    <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      <Radio className="w-3 h-3 animate-ping" /> Streaming
-                    </span>
-                  </div>
-
-                  <div className="h-60 overflow-y-auto space-y-2 text-xs font-mono pr-1 custom-scrollbar">
-                    {eventFeed.length === 0 ? (
-                      <div className="text-slate-500 italic py-8 text-center">Awaiting incoming telemetry...</div>
-                    ) : (
-                      eventFeed.map((evt) => (
-                        <div key={evt.id} className="p-2 rounded-lg bg-slate-950/80 border border-slate-800/60 flex items-start gap-2">
-                          <span className="text-slate-500 text-[10px] whitespace-nowrap">{evt.time}</span>
-                          <span className={`leading-tight ${evt.type === 'warn' ? 'text-amber-400' : evt.type === 'success' ? 'text-emerald-400' : 'text-slate-300'}`}>
-                            {evt.text}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-800/80 text-[10px] text-slate-500 flex justify-between">
-                  <span>Transport: WebSocket (Socket.IO)</span>
-                  <span>10s Optimization Interval</span>
+                <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+                  <div className="text-xs font-semibold text-amber-400">Green Transport C</div>
+                  <div className="text-2xl font-black text-white mt-1">{latestPower.tenantC || 18.3} kW</div>
+                  <div className="text-[10px] text-slate-400 mt-1">Contracted Floor: 20.0 kW</div>
                 </div>
               </div>
             </div>
 
-            {/* Active Sessions Grid */}
+            {/* Live Stacked Power Graph */}
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
-              <h2 className="text-lg font-bold text-white mb-4 tracking-tight">Active Charger Fleet Sessions</h2>
-              
-              {filteredSessions.length === 0 ? (
-                <div className="bg-slate-950/80 p-12 rounded-2xl border border-slate-800 text-center space-y-3">
-                  <AlertCircle className="w-8 h-8 text-slate-500 mx-auto" />
-                  <div className="text-sm font-semibold text-slate-300">No active charging sessions found</div>
-                  <div className="text-xs text-slate-500 max-w-md mx-auto">
-                    Start simulator chargers or connect physical OCPP 1.6-J hardware to populate live sessions.
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-base font-bold text-white tracking-tight">Data Analysis & Site Load Graph</h2>
+                  <p className="text-xs text-slate-400">Real-time fair allocation under 100 kW grid constraint</p>
+                </div>
+              </div>
+
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={powerHistory}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="time" stroke="#64748b" fontSize={11} />
+                    <YAxis stroke="#64748b" fontSize={11} domain={[0, 120]} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
+                    <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '100 kW Site Limit', fill: '#ef4444', fontSize: 12, position: 'top', fontWeight: 'bold' }} />
+                    <Area type="monotone" dataKey="tenantA" stackId="1" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.5} />
+                    <Area type="monotone" dataKey="tenantB" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
+                    <Area type="monotone" dataKey="tenantC" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.5} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Pricing According Conditions Table */}
+            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
+              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-400" /> Time-of-Use Pricing According to Grid Conditions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {pricingConditions.map((cond, idx) => (
+                  <div key={idx} className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <div className="text-xs font-bold text-white">{cond.period}</div>
+                    <div className="text-sm font-black text-cyan-400">{cond.price}</div>
+                    <div className="text-xs text-slate-400">Demand Charge: {cond.demandCharge}</div>
+                    <div className="text-[10px] text-slate-500">Carbon Intensity: {cond.carbon}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* DASHBOARD 2: TENANT MANAGER DASHBOARD (TENANT_MGR Role)                   */}
+        {/* ========================================================================= */}
+        {role === 'TENANT_MGR' && activeTab === 'LIVE' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  <Truck className="w-6 h-6 text-purple-400" /> Fleet Manager Command Center — Logistics Fleet A
+                </h2>
+                <p className="text-xs text-slate-400">Electric consumption, vehicle timings, urgency priority queue & company cost breakdown</p>
+              </div>
+              <span className="text-xs px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/30 font-bold">
+                Contracted Floor: 40 kW Guaranteed
+              </span>
+            </div>
+
+            {/* Fleet Top Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fleet EV Electric Consumption</div>
+                <div className="text-3xl font-black text-white mt-1.5">{latestPower.tenantA || 41.7} kW</div>
+                <div className="text-xs text-slate-400 mt-2">142.5 kWh Delivered Today</div>
+              </div>
+
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Fleet EVs</div>
+                <div className="text-3xl font-black text-purple-400 mt-1.5">4 Vehicles</div>
+                <div className="text-xs text-slate-400 mt-2">3 Charging, 1 Paused in 6A Queue</div>
+              </div>
+
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Time Priority Queue</div>
+                <div className="text-3xl font-black text-emerald-400 mt-1.5">High Laxity</div>
+                <div className="text-xs text-slate-400 mt-2">Truck MH-12-AB-1004 Ranked #1</div>
+              </div>
+
+              <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg flex flex-col justify-between">
+                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Company Consumption Cost</div>
+                <div className="text-2xl font-black text-cyan-400 mt-1">₹2,285.50</div>
+                <button 
+                  onClick={() => setShowInvoiceModal(true)}
+                  className="mt-2 text-xs bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl shadow transition"
+                >
+                  View Invoice Details
+                </button>
+              </div>
+            </div>
+
+            {/* Timing of EVs & Priority Schedule Table */}
+            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
+              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <Clock className="w-5 h-5 text-purple-400" /> Timing of EVs & Time Priority Schedule
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 uppercase font-semibold">
+                    <tr>
+                      <th className="p-3">Vehicle</th>
+                      <th className="p-3">Charger</th>
+                      <th className="p-3">Departure Time</th>
+                      <th className="p-3">Target SoC</th>
+                      <th className="p-3">Allocated kW</th>
+                      <th className="p-3">Priority Rank</th>
+                      <th className="p-3">State</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80 text-slate-200">
+                    <tr className="hover:bg-slate-900/50">
+                      <td className="p-3 font-bold text-white">Truck MH-12-AB-1004</td>
+                      <td className="p-3">CP-003</td>
+                      <td className="p-3">05:45 AM (Tight)</td>
+                      <td className="p-3 font-bold text-cyan-400">95%</td>
+                      <td className="p-3 font-bold text-emerald-400">18.2 kW</td>
+                      <td className="p-3 font-bold text-purple-400">Rank #1 (Highest)</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging</span></td>
+                    </tr>
+                    <tr className="hover:bg-slate-900/50">
+                      <td className="p-3 font-bold text-white">Van MH-12-AB-1001</td>
+                      <td className="p-3">CP-001</td>
+                      <td className="p-3">06:00 AM</td>
+                      <td className="p-3 font-bold text-cyan-400">90%</td>
+                      <td className="p-3 font-bold text-emerald-400">12.5 kW</td>
+                      <td className="p-3 font-bold text-purple-400">Rank #2</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging</span></td>
+                    </tr>
+                    <tr className="hover:bg-slate-900/50">
+                      <td className="p-3 font-bold text-white">Van MH-12-AB-1002</td>
+                      <td className="p-3">CP-002</td>
+                      <td className="p-3">06:30 AM</td>
+                      <td className="p-3 font-bold text-cyan-400">85%</td>
+                      <td className="p-3 font-bold text-emerald-400">11.0 kW</td>
+                      <td className="p-3 font-bold text-purple-400">Rank #3</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging</span></td>
+                    </tr>
+                    <tr className="hover:bg-slate-900/50">
+                      <td className="p-3 font-bold text-white">Van MH-12-AB-1003</td>
+                      <td className="p-3">CP-004</td>
+                      <td className="p-3">07:15 AM (Flexible)</td>
+                      <td className="p-3 font-bold text-cyan-400">80%</td>
+                      <td className="p-3 font-bold text-amber-400">0.0 kW</td>
+                      <td className="p-3 font-bold text-slate-400">Rank #4 (Paused)</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">Paused in 6A Queue</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* DASHBOARD 3: END USER / EV DRIVER DASHBOARD (DRIVER Role)                  */}
+        {/* ========================================================================= */}
+        {role === 'DRIVER' && activeTab === 'LIVE' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  <BatteryCharging className="w-6 h-6 text-cyan-400" /> Driver Live Charging Hub — {driverSession.vehicle}
+                </h2>
+                <p className="text-xs text-slate-400">Live charging monitor for your assigned EV & real-time power supply change alerts</p>
+              </div>
+              <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
+                Connected to {driverSession.charger}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Single Vehicle Live Charging Meter */}
+              <div className="md:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-white">Live EV Battery Charging State</span>
+                  <span className="text-xs font-mono text-cyan-400">Departure Target: {driverSession.departureTime}</span>
+                </div>
+
+                <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-xs text-slate-400">Current SoC Level:</span>
+                    <span className="text-4xl font-black text-cyan-400">{driverSession.currentSoc || 42}%</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-4 rounded-full overflow-hidden p-1 border border-slate-700">
+                    <div className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-700" style={{ width: `${driverSession.currentSoc || 42}%` }}></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-400">
+                    <span>Plugged in at 15%</span>
+                    <span>Guaranteed Target: {driverSession.targetSoc || 90}%</span>
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredSessions.map((sess) => (
-                    <div 
-                      key={sess.id} 
-                      className={`bg-slate-950/80 p-5 rounded-2xl border transition-all duration-500 shadow-md flex flex-col justify-between space-y-4 ${
-                        updatedSessionIds.has(sess.id) ? 'border-cyan-500 bg-cyan-500/10 shadow-cyan-500/20' : 'border-slate-800/80 hover:border-cyan-500/30'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-base tracking-tight">{sess.vehicle?.name || sess.vehicle || `Session ${sess.id.slice(0, 6)}`}</span>
-                            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-cyan-400 border border-slate-700">{sess.tenant || 'Tenant A'}</span>
-                          </div>
-                          <div className="text-xs text-slate-400 flex items-center gap-3">
-                            <span>Charger: <strong className="text-slate-200">{sess.charger?.ocppId || sess.charger || 'CP-001'}</strong></span>
-                            <span>Target: <strong className="text-slate-200">{sess.targetSoc || 90}%</strong></span>
-                          </div>
-                        </div>
 
-                        <span className={`text-xs px-3 py-1 rounded-full font-bold border shadow-sm ${
-                          sess.state === 'Charging' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10' : 'bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-amber-500/10'
-                        }`}>
-                          {sess.state || 'Charging'}
-                        </span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                    <div className="text-xs text-slate-400">Current Power Draw</div>
+                    <div className="text-2xl font-black text-emerald-400 mt-1">{driverSession.allocatedKw || 12.5} kW</div>
+                  </div>
+                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
+                    <div className="text-xs text-slate-400">Est. Time Remaining</div>
+                    <div className="text-2xl font-black text-cyan-400 mt-1">1h 45m</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Real-Time Power Supply Change Notification Feed */}
+              <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <BellRing className="w-4 h-4 text-amber-400" /> Power Supply Alerts
+                </h3>
+                <div className="space-y-3">
+                  {driverNotifications.map((notif) => (
+                    <div key={notif.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-1">
+                      <div className="flex justify-between text-slate-500 text-[10px]">
+                        <span>System Alert</span>
+                        <span>{notif.time}</span>
                       </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs font-semibold">
-                          <span className="text-slate-400">Battery SoC:</span>
-                          <span className="text-cyan-400 font-mono">{sess.currentSoc || sess.soc || 40}%</span>
-                        </div>
-                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
-                          <div className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, sess.currentSoc || 40)}%` }}></div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                        <div>
-                          <div className="text-lg font-black text-cyan-400 tracking-tight">{sess.allocatedKw || 0} kW</div>
-                          <div className="text-[10px] text-slate-400 font-medium">Allocated Rate</div>
-                        </div>
-
-                        <button
-                          onClick={() => handleWhyClick(sess)}
-                          className="text-xs bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow hover:shadow-cyan-500/10"
-                        >
-                          <HelpCircle className="w-3.5 h-3.5 text-cyan-400" /> Why?
-                        </button>
+                      <div className={notif.type === 'warn' ? 'text-amber-300' : 'text-slate-200'}>
+                        {notif.text}
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
-          </>
+          </div>
         )}
 
+        {/* Benchmark & Copilot Tabs */}
         {activeTab === 'BENCHMARK' && (
           <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-6">
             <div>
@@ -485,17 +598,14 @@ export default function App() {
               <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 text-center shadow-lg">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Peak Demand Reduction</div>
                 <div className="text-3xl font-black text-emerald-400 mt-2">22.4%</div>
-                <div className="text-xs text-slate-400 mt-1">vs Uncontrolled Baseline</div>
               </div>
               <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 text-center shadow-lg">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Monthly Demand Savings</div>
                 <div className="text-3xl font-black text-cyan-400 mt-2">₹18,400 / mo</div>
-                <div className="text-xs text-slate-400 mt-1">Avoided demand charge spike</div>
               </div>
               <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 text-center shadow-lg">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Departure Compliance</div>
                 <div className="text-3xl font-black text-purple-400 mt-2">98.5%</div>
-                <div className="text-xs text-slate-400 mt-1">Deadlines met on time</div>
               </div>
             </div>
 
@@ -507,9 +617,9 @@ export default function App() {
                   <YAxis stroke="#64748b" fontSize={11} domain={[0, 200]} />
                   <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
                   <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '100 kW Site Capacity', fill: '#ef4444', fontSize: 11, fontWeight: 'bold' }} />
-                  <Line type="monotone" dataKey="uncontrolled" stroke="#ef4444" strokeWidth={2} name="Uncontrolled (Spike)" />
+                  <Line type="monotone" dataKey="uncontrolled" stroke="#ef4444" strokeWidth={2} name="Uncontrolled" />
                   <Line type="monotone" dataKey="naive" stroke="#f59e0b" strokeWidth={2} name="Naive Equal-Split" />
-                  <Line type="monotone" dataKey="switchyard" stroke="#10b981" strokeWidth={3.5} name="Switchyard (Flat Top)" />
+                  <Line type="monotone" dataKey="switchyard" stroke="#10b981" strokeWidth={3.5} name="Switchyard" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -559,41 +669,6 @@ export default function App() {
         )}
 
       </main>
-
-      {/* D3 Promise Conflict Resolution Card */}
-      {activeConflict && (
-        <div className="fixed bottom-6 right-6 max-w-md w-full bg-slate-900/95 backdrop-blur-xl p-5 rounded-2xl border border-amber-500/40 shadow-2xl z-50 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-amber-400 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4" /> D3 Charge Promise Conflict Detected
-            </h4>
-            <button onClick={() => setActiveConflict(null)} className="text-slate-400 hover:text-white text-xs">✕</button>
-          </div>
-          <p className="text-xs text-slate-300">
-            Grid capacity restrictions threaten promised SoC target ({activeConflict.promisedSoc}%) by departure.
-          </p>
-          <div className="space-y-2 pt-1">
-            <button
-              onClick={() => setActiveConflict(null)}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold py-2 rounded-xl text-xs transition shadow hover:shadow-cyan-500/20"
-            >
-              Option 1: Push Departure Time (+45 mins)
-            </button>
-            <button
-              onClick={() => setActiveConflict(null)}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 rounded-xl text-xs transition border border-slate-700"
-            >
-              Option 2: Accept 75% Target SoC
-            </button>
-            <button
-              onClick={() => setActiveConflict(null)}
-              className="w-full bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold py-2 rounded-xl text-xs transition border border-amber-500/30"
-            >
-              Option 3: Spend 12 Release-Credits to Buy Priority
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* D2 Explainability Receipt Modal */}
       {selectedReceipt && (
