@@ -47,10 +47,42 @@ export default function App() {
   const [updatedSessionIds, setUpdatedSessionIds] = useState<Set<string>>(new Set());
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [benchmarkMetrics, setBenchmarkMetrics] = useState<any>(null);
+  const [liveKwhDelivered, setLiveKwhDelivered] = useState<number>(142.5);
+  const [liveTotalCost, setLiveTotalCost] = useState<number>(2285.50);
+  const [dynamicSocBoost, setDynamicSocBoost] = useState<number>(0);
   const [driverNotifications, setDriverNotifications] = useState<any[]>([
     { id: 1, time: '13:15', text: 'Charging started at 12.5 kW. Estimated full charge at 06:00 AM.', type: 'info' },
     { id: 2, time: '13:18', text: 'Power supply temporarily adjusted to 11.0 kW to prioritize emergency delivery vehicle departure.', type: 'warn' },
   ]);
+
+  // Continuous Live Updates for kWh Delivered, Billing Cost, Driver SoC Progress, and Telemetry Packets
+  useEffect(() => {
+    const liveStatsInterval = setInterval(() => {
+      // Increment kWh delivered & total cost smoothly live as power flows
+      setLiveKwhDelivered(prev => Number((prev + 0.08).toFixed(2)));
+      setLiveTotalCost(prev => Number((prev + 0.60).toFixed(2)));
+
+      // Climb Driver SoC percentage live
+      setDynamicSocBoost(prev => (prev < 15 ? prev + 1 : 0));
+
+      // Append live telemetry event packet to WebSocket event stream
+      const cpId = `CP-00${Math.floor(Math.random() * 6) + 1}`;
+      const kwVal = (10 + Math.random() * 10).toFixed(1);
+      const timestampStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      setEventFeed(prev => [
+        {
+          id: 'evt-' + Date.now(),
+          time: timestampStr,
+          text: `OCPP 1.6-J TELEMETRY PACKET: ${cpId} MeterValues status OK. Active power draw: ${kwVal} kW. Site cap limit respected.`,
+          type: 'info'
+        },
+        ...prev.slice(0, 14)
+      ]);
+    }, 4000);
+
+    return () => clearInterval(liveStatsInterval);
+  }, []);
 
   // Live 3-Second Real-Time Wave & Surges Power Update Tick
   useEffect(() => {
@@ -743,7 +775,7 @@ export default function App() {
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fleet EV Electric Consumption</div>
                 <div className="text-3xl font-black text-white mt-1.5">{latestPower.tenantA || 41.7} kW</div>
-                <div className="text-xs text-slate-400 mt-2">142.5 kWh Delivered Today</div>
+                <div className="text-xs text-slate-400 mt-2"><strong className="text-cyan-400">{liveKwhDelivered} kWh</strong> Delivered Today</div>
               </div>
 
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
@@ -760,7 +792,7 @@ export default function App() {
 
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg flex flex-col justify-between">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Company Consumption Cost</div>
-                <div className="text-2xl font-black text-cyan-400 mt-1">₹2,285.50</div>
+                <div className="text-2xl font-black text-cyan-400 mt-1">₹{liveTotalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                 <button 
                   onClick={() => setShowInvoiceModal(true)}
                   className="mt-2 text-xs bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-2 rounded-xl shadow transition"

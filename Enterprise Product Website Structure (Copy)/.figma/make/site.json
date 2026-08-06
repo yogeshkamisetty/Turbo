@@ -1,0 +1,10 @@
+{
+  "description": "This platform enables businesses to manage and optimize electric vehicle charging operations with real-time monitoring, billing, and analytics for enhanced efficiency.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
