@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Database, Table, Shield, Terminal, CheckCircle2, ChevronRight, RefreshCw, X, Server, Lock, EyeOff } from 'lucide-react';
+import { Database, Table, Shield, Terminal, CheckCircle2, ChevronRight, RefreshCw, X, Server, Lock, EyeOff, Layers } from 'lucide-react';
 
 interface DatabaseExplorerProps {
   userRole?: 'ADMIN' | 'TENANT_MGR' | 'DRIVER';
@@ -16,6 +16,7 @@ export function DatabaseExplorer({
   companyFloors = { 'Logistics Fleet A': 40, 'Delivery Express B': 30, 'Green Transport C': 20 },
   sessions = []
 }: DatabaseExplorerProps) {
+  const [sqlEngine, setSqlEngine] = useState<'POSTGRESQL' | 'MYSQL'>('MYSQL');
   const [activeTable, setActiveTable] = useState<string>(
     userRole === 'DRIVER' ? 'sessions' : userRole === 'TENANT_MGR' ? 'sessions' : 'tenants'
   );
@@ -53,10 +54,11 @@ export function DatabaseExplorer({
         { session_id: 's6-222222', charger_id: 'CP-006', vehicle_id: 'v-2002 (Express B2)', tenant_id: '22222222-2222...', start_end: '13:25 / 06:45 AM', kwh: '28.9 kWh', allocated_power: '11.0 kW' },
       ];
 
-  // Full raw table data dictionary with sensitive fields & RLS policies
-  const rawTableData: Record<string, { query: string; columns: string[]; rows: Record<string, any>[] }> = {
+  // Full raw table data dictionary for PostgreSQL & MySQL Dialects
+  const rawTableData: Record<string, { pgQuery: string; mysqlQuery: string; columns: string[]; rows: Record<string, any>[] }> = {
     tenants: {
-      query: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM tenants JOIN entitlements ON tenants.id = entitlements.tenant_id;`,
+      pgQuery: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM tenants JOIN entitlements ON tenants.id = entitlements.tenant_id;`,
+      mysqlQuery: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM switchyard_db.tenants INNER JOIN entitlements ON tenants.id = entitlements.tenant_id ENGINE=InnoDB;`,
       columns: ['tenant_id', 'company_name', 'site_id', 'biding_plan'],
       rows: [
         { tenant_id: '11111111-1111-1111-1111-111111111111', company_name: 'Logistics Fleet A', site_id: 'b0000000-0000-4000-8000-000000000001', biding_plan: `${companyFloors['Logistics Fleet A'] || 40.00} kW Guaranteed Floor` },
@@ -65,17 +67,20 @@ export function DatabaseExplorer({
       ],
     },
     chargers: {
-      query: `SELECT id AS charger_id, site_id, ocpp_id AS ocpp_endpoint, max_kw AS max_power, status FROM chargers ORDER BY ocpp_id;`,
+      pgQuery: `SELECT id AS charger_id, site_id, ocpp_id AS ocpp_endpoint, max_kw AS max_power, status FROM chargers ORDER BY ocpp_id;`,
+      mysqlQuery: `SELECT id AS charger_id, site_id, ocpp_id AS ocpp_endpoint, max_kw AS max_power, status FROM switchyard_db.chargers ORDER BY ocpp_id ASC;`,
       columns: ['charger_id', 'site_id', 'ocpp_endpoint', 'max_power', 'status'],
       rows: dynamicChargerRows,
     },
     sessions: {
-      query: `SELECT id AS session_id, charger_id, vehicle_id, tenant_id, start_time || ' / ' || departure_time AS start_end, delivered_kwh AS kwh, allocated_kw AS allocated_power FROM sessions ORDER BY id;`,
+      pgQuery: `SELECT id AS session_id, charger_id, vehicle_id, tenant_id, start_time || ' / ' || departure_time AS start_end, delivered_kwh AS kwh, allocated_kw AS allocated_power FROM sessions ORDER BY id;`,
+      mysqlQuery: `SELECT id AS session_id, charger_id, vehicle_id, tenant_id, CONCAT(start_time, ' / ', departure_time) AS start_end, delivered_kwh AS kwh, allocated_kw AS allocated_power FROM switchyard_db.sessions ORDER BY id ASC;`,
       columns: ['session_id', 'charger_id', 'vehicle_id', 'tenant_id', 'start_end', 'kwh', 'allocated_power'],
       rows: dynamicSessionRows,
     },
     vehicles: {
-      query: `SELECT id AS vehicle_id, tenant_id, battery_capacity_kwh AS battery_capacity, driver_name AS driver, priority_tier FROM vehicles ORDER BY id;`,
+      pgQuery: `SELECT id AS vehicle_id, tenant_id, battery_capacity_kwh AS battery_capacity, driver_name AS driver, priority_tier FROM vehicles ORDER BY id;`,
+      mysqlQuery: `SELECT id AS vehicle_id, tenant_id, battery_capacity_kwh AS battery_capacity, driver_name AS driver, priority_tier FROM switchyard_db.vehicles ORDER BY id ASC;`,
       columns: ['vehicle_id', 'tenant_id', 'battery_capacity', 'driver', 'priority_tier'],
       rows: [
         { vehicle_id: 'v-1001', tenant_id: '11111111-1111...', battery_capacity: '80.00 kWh', driver: 'Driver Dave', priority_tier: 'Rank #2 (Normal)' },
@@ -85,7 +90,8 @@ export function DatabaseExplorer({
       ],
     },
     invoices: {
-      query: `SELECT id AS invoice_id, tenant_id, period, total_kwh, amount FROM capacity_credits JOIN billing ON tenant_id;`,
+      pgQuery: `SELECT id AS invoice_id, tenant_id, period, total_kwh, amount FROM capacity_credits JOIN billing ON tenant_id;`,
+      mysqlQuery: `SELECT id AS invoice_id, tenant_id, period, total_kwh, amount FROM switchyard_db.capacity_credits INNER JOIN billing ON tenant_id;`,
       columns: ['invoice_id', 'tenant_id', 'period', 'total_kwh', 'amount'],
       rows: [
         { invoice_id: 'inv-2026-08A', tenant_id: '11111111-1111... (Fleet A)', period: 'Aug 2026', total_kwh: '142.50 kWh', amount: '₹2,285.50' },
@@ -94,7 +100,8 @@ export function DatabaseExplorer({
       ],
     },
     users: {
-      query: `SELECT id, email, role, password_hash, tenant_id FROM users ORDER BY role;`,
+      pgQuery: `SELECT id, email, role, password_hash, tenant_id FROM users ORDER BY role;`,
+      mysqlQuery: `SELECT id, email, role, password_hash, tenant_id FROM switchyard_db.users ORDER BY role ASC;`,
       columns: ['id', 'email', 'role', 'password_hash', 'tenant_id'],
       rows: [
         { id: 'usr-001', email: 'admin@switchyard.io', role: 'ADMIN', password_hash: '🔒 $2b$10$e8Z... [REDACTED BY RLS]', tenant_id: 'SYSTEM_GLOBAL' },
@@ -108,18 +115,19 @@ export function DatabaseExplorer({
 
   // Apply Role-Based Data Isolation & Restrictions
   const getFilteredTableData = () => {
-    const currentData = rawTableData[activeTable] || { query: '', columns: [], rows: [] };
+    const currentData = rawTableData[activeTable] || { pgQuery: '', mysqlQuery: '', columns: [], rows: [] };
+    const selectedQuery = sqlEngine === 'MYSQL' ? currentData.mysqlQuery : currentData.pgQuery;
 
     // DRIVER ROLE RESTRICTION: Forbidden for tenants, invoices, users
     if (userRole === 'DRIVER') {
       if (['tenants', 'invoices', 'users'].includes(activeTable)) {
         return {
-          query: `SET RLS POLICY FOR DRIVER ROLE; -- ACCESS DENIED`,
+          query: sqlEngine === 'MYSQL' ? `SELECT * FROM switchyard_db.${activeTable}; -- MySQL Access Denied` : `SET RLS POLICY FOR DRIVER ROLE; -- ACCESS DENIED`,
           columns: ['STATUS_CODE', 'MESSAGE'],
           rows: [
             {
               STATUS_CODE: '403 FORBIDDEN',
-              MESSAGE: `🔒 Table access restricted by PostgreSQL RLS Security Policy for DRIVER role.`,
+              MESSAGE: `🔒 Table access restricted by ${sqlEngine} Security Policy for DRIVER role.`,
             },
           ],
           isForbidden: true,
@@ -129,19 +137,22 @@ export function DatabaseExplorer({
       // DRIVER ROLE RESTRICTION: Row-level filter strictly for own vehicle
       if (activeTable === 'sessions') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.session_id.includes('s1') || r.vehicle_id.includes('v-1001')),
         };
       }
       if (activeTable === 'chargers') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.charger_id === 'ch-001'),
         };
       }
       if (activeTable === 'vehicles') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.vehicle_id === 'v-1001'),
         };
       }
@@ -151,25 +162,29 @@ export function DatabaseExplorer({
     if (userRole === 'TENANT_MGR') {
       if (activeTable === 'tenants') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.tenant_id === '11111111-1111-1111-1111-111111111111'),
         };
       }
       if (activeTable === 'sessions') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.tenant_id.includes('11111111')),
         };
       }
       if (activeTable === 'invoices') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.tenant_id.includes('Fleet A')),
         };
       }
       if (activeTable === 'vehicles') {
         return {
-          ...currentData,
+          query: selectedQuery,
+          columns: currentData.columns,
           rows: currentData.rows.filter(r => r.tenant_id.includes('11111111')),
         };
       }
@@ -177,7 +192,9 @@ export function DatabaseExplorer({
 
     // ADMIN ROLE: Returns full site-wide table representation
     return {
-      ...currentData,
+      query: selectedQuery,
+      columns: currentData.columns,
+      rows: currentData.rows,
       isForbidden: false,
     };
   };
@@ -194,17 +211,37 @@ export function DatabaseExplorer({
           </div>
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              PostgreSQL Database Table Representation
+              {sqlEngine === 'MYSQL' ? 'MySQL 8.0 Database Table Representation' : 'PostgreSQL Database Table Representation'}
             </h2>
             <p className="text-xs text-slate-400">
-              Enforcing strict PostgreSQL Row-Level Security (RLS) policies for <strong className="text-cyan-300">{userRole}</strong> role.
+              Showcasing relational database tables under <strong className="text-cyan-300">{sqlEngine}</strong> Engine with <strong className="text-cyan-300">{userRole}</strong> security policies.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
+          {/* SQL Engine / Dialect Switcher */}
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold">
+            <button
+              onClick={() => setSqlEngine('MYSQL')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                sqlEngine === 'MYSQL' ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              MySQL (v8.0)
+            </button>
+            <button
+              onClick={() => setSqlEngine('POSTGRESQL')}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                sqlEngine === 'POSTGRESQL' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              PostgreSQL (v15)
+            </button>
+          </div>
+
           <span className="text-xs px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-2 font-mono">
-            <Shield className="w-3.5 h-3.5 text-cyan-400" /> RLS Context: {userRole}
+            <Shield className="w-3.5 h-3.5 text-cyan-400" /> RLS: {userRole}
           </span>
           {onClose && (
             <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-950 border border-slate-800">
@@ -214,15 +251,19 @@ export function DatabaseExplorer({
         </div>
       </div>
 
-      {/* Role RLS Policy Description Header */}
+      {/* Engine Description Banner */}
       <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800/80 flex items-start gap-3">
-        <Lock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+        <Server className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
         <div className="text-xs text-slate-300 space-y-1">
           <div className="font-semibold text-amber-300">
-            PostgreSQL Row-Level Security Active: As {userRole}, private sibling tenant invoices, unassigned vehicle telemetry, password hashes, and site keys are restricted/redacted.
+            {sqlEngine === 'MYSQL'
+              ? 'MySQL 8.0 InnoDB Relational Engine Active: Showing MySQL database tables (`switchyard_db`), auto-increment IDs, and InnoDB storage engine views.'
+              : 'PostgreSQL 15 Relational Engine Active: Enforcing PostgreSQL Row-Level Security (RLS) views and TypeORM entity mappings.'}
           </div>
           <div className="text-[11px] text-slate-400 font-mono">
-            RLS Enforcement Query Filter: {userRole === 'DRIVER' ? 'app.tenant_id = 11111111 AND vehicle_id = v-1001' : userRole === 'TENANT_MGR' ? 'app.tenant_id = 11111111-1111-1111-1111-111111111111' : 'BYPASSRLS for site_admin_role'}
+            {sqlEngine === 'MYSQL'
+              ? 'MySQL Query: SHOW TABLES FROM switchyard_db; -- ENGINE=InnoDB CHARSET=utf8mb4'
+              : 'PostgreSQL Query: SELECT table_name FROM information_schema.tables WHERE table_schema = \'public\';'}
           </div>
         </div>
       </div>
@@ -235,7 +276,9 @@ export function DatabaseExplorer({
             onClick={() => setActiveTable(t)}
             className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
               activeTable === t
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20'
+                ? sqlEngine === 'MYSQL'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-lg shadow-amber-500/20'
+                  : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
@@ -247,10 +290,10 @@ export function DatabaseExplorer({
       {/* SQL Query Preview Terminal */}
       <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-2 font-mono text-xs">
         <div className="text-[10px] text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-          <Terminal className="w-3.5 h-3.5 text-cyan-400" /> Executing SQL Query under RLS Context:
+          <Terminal className="w-3.5 h-3.5 text-cyan-400" /> Executing {sqlEngine} Query under {userRole} Context:
         </div>
         <div className="text-cyan-300 font-medium overflow-x-auto whitespace-nowrap bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-          <span className="text-slate-500">&gt;_ psql&gt; </span>
+          <span className="text-slate-500">&gt;_ {sqlEngine === 'MYSQL' ? 'mysql>' : 'psql>'} </span>
           {currentView.query}
         </div>
       </div>
@@ -282,7 +325,7 @@ export function DatabaseExplorer({
 
         <div className="bg-slate-900 px-4 py-2.5 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
           <span>{currentView.rows.length} rows returned</span>
-          <span>PostgreSQL 15 RLS Filter Active for {userRole}</span>
+          <span>{sqlEngine} 8.0 Engine Active for {userRole}</span>
         </div>
       </div>
     </div>
