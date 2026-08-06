@@ -74,32 +74,31 @@ export async function loginAsRole(email: string, pass: string) {
 
   const matched = userMap[email];
 
-  // STRICT PASSWORD VERIFICATION: Fail if user exists but password doesn't match!
-  if (matched) {
-    if (matched.pass && matched.pass !== pass) {
-      return null; // Password mismatch -> authentication fails
-    }
-  } else {
-    // Require valid password length for unmapped accounts
-    if (!pass || pass.length < 4) {
-      return null;
-    }
+  // STRICT EMAIL AUTHORIZATION: Block any email outside authorized demo directory
+  if (!matched) {
+    return {
+      restricted: true,
+      message: 'Access Restricted: Email address is not authorized in Switchyard User Directory. Please use an authorized demo account or click Sign Up.',
+    };
   }
 
-  const role = matched ? matched.role : (email.includes('admin') ? 'ADMIN' : email.includes('mgr') ? 'TENANT_MGR' : 'DRIVER');
-  const name = matched ? matched.name : email.split('@')[0];
-  const tenantName = matched ? matched.tenantName : 'Logistics Fleet A';
-  const tenantId = matched ? matched.tenantId : '11111111-1111-1111-1111-111111111111';
+  // STRICT PASSWORD VERIFICATION: Block incorrect password
+  if (matched.pass && matched.pass !== pass) {
+    return {
+      restricted: true,
+      message: 'Access Restricted: Incorrect password for ' + email + '. Please check credentials and try again.',
+    };
+  }
 
   const fallbackPayload = {
     access_token: 'demo_jwt_bearer_token_' + Date.now(),
     user: {
       email,
       sub: 'demo-user-id-' + Math.random().toString().slice(2, 6),
-      role,
-      name,
-      tenantName,
-      tenantId,
+      role: matched.role,
+      name: matched.name,
+      tenantName: matched.tenantName,
+      tenantId: matched.tenantId,
     }
   };
   setAuthToken(fallbackPayload.access_token);

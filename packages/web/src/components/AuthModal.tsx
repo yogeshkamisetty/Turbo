@@ -31,10 +31,12 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
 
     try {
       const res = await loginAsRole(email, password);
-      if (res && res.access_token) {
-        onLoginSuccess(res.user || { email, role: 'ADMIN', name: 'System Admin' });
+      if (res && res.restricted) {
+        setError(res.message);
+      } else if (res && res.access_token) {
+        onLoginSuccess(res.user);
       } else {
-        setError('Invalid email or password. Please try again.');
+        setError('Access Restricted: Invalid email or password.');
       }
     } catch (err: any) {
       setError('Connection error. Could not reach authentication service.');
