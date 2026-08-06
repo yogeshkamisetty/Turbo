@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line } from 'recharts';
-import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle, LogOut, User, BatteryCharging, Building2, Truck, BellRing, DollarSign, Activity, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle, LogOut, User, BatteryCharging, Building2, Truck, BellRing, DollarSign, Activity, CheckCircle2, ChevronRight, Database } from 'lucide-react';
 import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, fetchBenchmark, createSocketConnection } from './api/client';
 import { AuthModal } from './components/AuthModal';
+import { DatabaseExplorer } from './components/DatabaseExplorer';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -10,7 +11,7 @@ export default function App() {
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
   const [controlTier, setControlTier] = useState<number>(2);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'LIVE' | 'BENCHMARK' | 'COPILOT'>('LIVE');
+  const [activeTab, setActiveTab] = useState<'LIVE' | 'BENCHMARK' | 'COPILOT' | 'DB_EXPLORER'>('LIVE');
   const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
   const [copilotQuery, setCopilotQuery] = useState<string>('Why was my fleet throttled last night?');
   const [copilotResult, setCopilotResult] = useState<any>(null);
@@ -220,6 +221,12 @@ export default function App() {
             className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'COPILOT' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
           >
             <Sparkles className="w-3.5 h-3.5 text-cyan-300" /> AI Fleet Copilot
+          </button>
+          <button
+            onClick={() => setActiveTab('DB_EXPLORER')}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'DB_EXPLORER' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-400" /> PostgreSQL DB Tables
           </button>
         </div>
 
@@ -667,6 +674,8 @@ export default function App() {
             )}
           </div>
         )}
+
+        {activeTab === 'DB_EXPLORER' && <DatabaseExplorer />}
 
       </main>
 
