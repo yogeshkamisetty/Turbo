@@ -259,12 +259,65 @@ export default function App() {
     setCopilotLoading(false);
   };
 
-  // Filtered sessions based on role
-  const driverSession = sessions.find(s => s.id === 's1') || sessions[0] || {
-    id: 's1', vehicle: 'Van MH-12-AB-1001', tenant: 'Logistics Fleet A', charger: 'CP-001', currentSoc: 42, targetSoc: 90, allocatedKw: 12.5, state: 'Charging', departureTime: '06:00 AM'
+  // Filtered sessions based on role & logged in user
+  const driverSession = user?.email === 'driver2@logistics.com'
+    ? (sessions.find(s => s.vehicle?.includes('1004')) || {
+        id: 's4',
+        vehicle: 'Truck MH-12-AB-1004',
+        tenant: 'Logistics Fleet A',
+        charger: 'CP-003',
+        currentSoc: 62,
+        targetSoc: 95,
+        allocatedKw: 18.2,
+        state: 'Charging - Optimized',
+        departureTime: '05:45 AM (Tight)',
+        priorityRank: 1,
+      })
+    : (sessions.find(s => s.id === 's1') || sessions[0] || {
+        id: 's1',
+        vehicle: 'Van MH-12-AB-1001',
+        tenant: 'Logistics Fleet A',
+        charger: 'CP-001',
+        currentSoc: 42,
+        targetSoc: 90,
+        allocatedKw: 12.5,
+        state: 'Charging - Optimized',
+        departureTime: '06:00 AM',
+        priorityRank: 2,
+      });
+
+  const tenantSessions = user?.email === 'delivery_mgr@express.com'
+    ? [
+        { id: 's5', vehicle: 'Express Van B1 MH-14-XY-2001', tenant: 'Delivery Express B', charger: 'CP-005', currentSoc: 51, targetSoc: 88, allocatedKw: 14.1, state: 'Charging - Optimized', departureTime: '06:15 AM', priorityRank: 1 },
+        { id: 's6', vehicle: 'Express Van B2 MH-14-XY-2002', tenant: 'Delivery Express B', charger: 'CP-006', currentSoc: 67, targetSoc: 82, allocatedKw: 11.0, state: 'Charging - Optimized', departureTime: '07:00 AM', priorityRank: 2 },
+      ]
+    : [
+        { id: 's4', vehicle: 'Truck MH-12-AB-1004', tenant: 'Logistics Fleet A', charger: 'CP-003', currentSoc: 62, targetSoc: 95, allocatedKw: 18.2, state: 'Charging - Optimized', departureTime: '05:45 AM (Tight)', priorityRank: 1 },
+        { id: 's1', vehicle: 'Van MH-12-AB-1001', tenant: 'Logistics Fleet A', charger: 'CP-001', currentSoc: 42, targetSoc: 90, allocatedKw: 12.5, state: 'Charging - Optimized', departureTime: '06:00 AM', priorityRank: 2 },
+        { id: 's2', vehicle: 'Van MH-12-AB-1002', tenant: 'Logistics Fleet A', charger: 'CP-002', currentSoc: 58, targetSoc: 85, allocatedKw: 11.0, state: 'Throttled (Grid Limit)', departureTime: '06:30 AM', priorityRank: 3 },
+        { id: 's3', vehicle: 'Van MH-12-AB-1003', tenant: 'Logistics Fleet A', charger: 'CP-004', currentSoc: 25, targetSoc: 80, allocatedKw: 0.0, state: 'Queued', departureTime: '07:15 AM (Flexible)', priorityRank: 4 },
+      ];
+
+  const handleUpdateSessionDeparture = (sessionId: string, newDeparture: string) => {
+    setSessions(prev => prev.map(s => {
+      if (s.id === sessionId) {
+        return { ...s, departureTime: newDeparture };
+      }
+      return s;
+    }));
+    
+    // Push WebSocket Live Event into event feed
+    setEventFeed(prev => [
+      {
+        id: 'evt-' + Date.now(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        text: `WEBSOCKET LIVE UPDATE: EV Departure time updated to ${newDeparture}. Reactive MILP solver re-allocated kW power floors.`,
+        type: 'info'
+      },
+      ...prev
+    ]);
   };
 
-  const tenantSessions = sessions.filter(s => s.tenant === 'Logistics Fleet A' || s.tenantId === '11111111-1111-1111-1111-111111111111');
   const latestPower = powerHistory.length > 0 ? powerHistory[powerHistory.length - 1] : { total: 85.1, cap: 100, tenantA: 41.7, tenantB: 25.1, tenantC: 18.3 };
 
   return (
@@ -723,42 +776,35 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80 text-slate-200">
-                    <tr className="hover:bg-slate-900/50">
-                      <td className="p-3 font-bold text-white">Truck MH-12-AB-1004</td>
-                      <td className="p-3">CP-003</td>
-                      <td className="p-3">05:45 AM (Tight)</td>
-                      <td className="p-3 font-bold text-cyan-400">95%</td>
-                      <td className="p-3 font-bold text-emerald-400">18.2 kW</td>
-                      <td className="p-3 font-bold text-purple-400">Rank #1 (Highest)</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging - Optimized</span></td>
-                    </tr>
-                    <tr className="hover:bg-slate-900/50">
-                      <td className="p-3 font-bold text-white">Van MH-12-AB-1001</td>
-                      <td className="p-3">CP-001</td>
-                      <td className="p-3">06:00 AM</td>
-                      <td className="p-3 font-bold text-cyan-400">90%</td>
-                      <td className="p-3 font-bold text-emerald-400">12.5 kW</td>
-                      <td className="p-3 font-bold text-purple-400">Rank #2</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Charging - Optimized</span></td>
-                    </tr>
-                    <tr className="hover:bg-slate-900/50">
-                      <td className="p-3 font-bold text-white">Van MH-12-AB-1002</td>
-                      <td className="p-3">CP-002</td>
-                      <td className="p-3">06:30 AM</td>
-                      <td className="p-3 font-bold text-cyan-400">85%</td>
-                      <td className="p-3 font-bold text-emerald-400">11.0 kW</td>
-                      <td className="p-3 font-bold text-purple-400">Rank #3</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">Throttled (Grid Limit)</span></td>
-                    </tr>
-                    <tr className="hover:bg-slate-900/50">
-                      <td className="p-3 font-bold text-white">Van MH-12-AB-1003</td>
-                      <td className="p-3">CP-004</td>
-                      <td className="p-3">07:15 AM (Flexible)</td>
-                      <td className="p-3 font-bold text-cyan-400">80%</td>
-                      <td className="p-3 font-bold text-amber-400">0.0 kW</td>
-                      <td className="p-3 font-bold text-slate-400">Rank #4 (Queued)</td>
-                      <td className="p-3"><span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Queued</span></td>
-                    </tr>
+                    {tenantSessions.map((s, idx) => (
+                      <tr key={s.id || idx} className="hover:bg-slate-900/50 transition">
+                        <td className="p-3 font-bold text-white flex items-center gap-2">
+                          <Truck className="w-3.5 h-3.5 text-cyan-400" /> {s.vehicle}
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-slate-300">{s.charger}</td>
+                        <td className="p-3">
+                          <input
+                            type="text"
+                            defaultValue={s.departureTime}
+                            onBlur={(e) => handleUpdateSessionDeparture(s.id, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateSessionDeparture(s.id, (e.target as HTMLInputElement).value); }}
+                            className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white focus:border-cyan-500 focus:outline-none transition"
+                          />
+                        </td>
+                        <td className="p-3 font-bold text-cyan-400">{s.targetSoc || 90}%</td>
+                        <td className="p-3 font-bold text-emerald-400">{s.allocatedKw || 12.5} kW</td>
+                        <td className="p-3 font-bold text-purple-400">Rank #{s.priorityRank || (idx + 1)}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s.state?.includes('Charging') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                            s.state?.includes('Throttled') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                            'bg-slate-800 text-slate-300 border border-slate-700'
+                          }`}>
+                            {s.state || 'Charging - Optimized'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
