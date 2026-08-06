@@ -365,24 +365,131 @@ export default function App() {
 
             {/* Companies Consuming Power Breakdown */}
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
-              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <Activity className="w-5 h-5 text-cyan-400" /> Companies Power Consumption Breakdown
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
-                  <div className="text-xs font-semibold text-cyan-400">Logistics Fleet A</div>
-                  <div className="text-2xl font-black text-white mt-1">{latestPower.tenantA || 41.7} kW</div>
-                  <div className="text-[10px] text-slate-400 mt-1">Contracted Floor: 40.0 kW</div>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-cyan-400" /> Companies Power Consumption & Entitlement Breakdown
+                  </h3>
+                  <p className="text-xs text-slate-400">Real-time fair surplus pool distribution & D1 entitlement floor compliance</p>
                 </div>
-                <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
-                  <div className="text-xs font-semibold text-purple-400">Delivery Express B</div>
-                  <div className="text-2xl font-black text-white mt-1">{latestPower.tenantB || 25.1} kW</div>
-                  <div className="text-[10px] text-slate-400 mt-1">Contracted Floor: 30.0 kW</div>
+                <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
+                  90 kW Total Guaranteed Floors
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Logistics Fleet A */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 space-y-4 hover:border-cyan-500/40 transition shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-extrabold text-cyan-400">Logistics Fleet A</div>
+                      <div className="text-[10px] text-slate-500 font-mono">ID: 11111111-1111...</div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                      Floor Met (+1.7 kW Surplus)
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs text-slate-400">Allocated Draw:</span>
+                      <span className="text-2xl font-black text-white">{latestPower.tenantA || 41.7} kW</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
+                      <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantA || 41.7) / 40.0) * 100)}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-400">
+                      <span>Floor: 40.0 kW</span>
+                      <span className="text-cyan-400 font-semibold">4 Active EVs</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800/80 text-xs space-y-1.5">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Surplus Participation:</span>
+                      <span className="font-bold text-cyan-400">Borrowing Pool</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[11px]">
+                      <span>3-Phase Split:</span>
+                      <span className="font-mono text-slate-300">L1:13.9 | L2:13.9 | L3:13.9 kW</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
-                  <div className="text-xs font-semibold text-amber-400">Green Transport C</div>
-                  <div className="text-2xl font-black text-white mt-1">{latestPower.tenantC || 18.3} kW</div>
-                  <div className="text-[10px] text-slate-400 mt-1">Contracted Floor: 20.0 kW</div>
+
+                {/* Delivery Express B */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 space-y-4 hover:border-purple-500/40 transition shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-extrabold text-purple-400">Delivery Express B</div>
+                      <div className="text-[10px] text-slate-500 font-mono">ID: 22222222-2222...</div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      Releasing 4.9 kW Surplus
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs text-slate-400">Allocated Draw:</span>
+                      <span className="text-2xl font-black text-white">{latestPower.tenantB || 25.1} kW</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
+                      <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantB || 25.1) / 30.0) * 100)}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-400">
+                      <span>Floor: 30.0 kW</span>
+                      <span className="text-purple-400 font-semibold">2 Active EVs</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800/80 text-xs space-y-1.5">
+                    <div className="flex justify-between text-emerald-400 font-semibold">
+                      <span>Surplus Headroom Credit:</span>
+                      <span>+₹24.50 Earned</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[11px]">
+                      <span>3-Phase Split:</span>
+                      <span className="font-mono text-slate-300">L1:8.3 | L2:8.4 | L3:8.4 kW</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Green Transport C */}
+                <div className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 space-y-4 hover:border-amber-500/40 transition shadow-md">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-extrabold text-amber-400">Green Transport C</div>
+                      <div className="text-[10px] text-slate-500 font-mono">ID: 33333333-3333...</div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      Releasing 1.7 kW Surplus
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-xs text-slate-400">Allocated Draw:</span>
+                      <span className="text-2xl font-black text-white">{latestPower.tenantC || 18.3} kW</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantC || 18.3) / 20.0) * 100)}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-400">
+                      <span>Floor: 20.0 kW</span>
+                      <span className="text-amber-400 font-semibold">2 Active EVs</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800/80 text-xs space-y-1.5">
+                    <div className="flex justify-between text-emerald-400 font-semibold">
+                      <span>Surplus Headroom Credit:</span>
+                      <span>+₹8.50 Earned</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 text-[11px]">
+                      <span>3-Phase Split:</span>
+                      <span className="font-mono text-slate-300">L1:6.1 | L2:6.1 | L3:6.1 kW</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
