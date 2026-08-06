@@ -28,8 +28,18 @@ export default function App() {
     'Delivery Express B': 30.0,
     'Green Transport C': 20.0,
   });
-  const [powerHistory, setPowerHistory] = useState<any[]>([]);
-  const [cycleCount, setCycleCount] = useState<number>(0);
+  // Pre-populated initial power history dataset for instant live rendering
+  const initialPowerData = [
+    { time: '14:30:00', tenantA: 41.2, tenantB: 24.8, tenantC: 18.0, total: 84.0, cap: siteCapacityKw },
+    { time: '14:30:10', tenantA: 41.5, tenantB: 25.0, tenantC: 18.2, total: 84.7, cap: siteCapacityKw },
+    { time: '14:30:20', tenantA: 41.7, tenantB: 25.1, tenantC: 18.3, total: 85.1, cap: siteCapacityKw },
+    { time: '14:30:30', tenantA: 41.8, tenantB: 25.3, tenantC: 18.4, total: 85.5, cap: siteCapacityKw },
+    { time: '14:30:40', tenantA: 41.6, tenantB: 25.0, tenantC: 18.2, total: 84.8, cap: siteCapacityKw },
+    { time: '14:30:50', tenantA: 41.7, tenantB: 25.1, tenantC: 18.3, total: 85.1, cap: siteCapacityKw },
+  ];
+
+  const [powerHistory, setPowerHistory] = useState<any[]>(initialPowerData);
+  const [cycleCount, setCycleCount] = useState<number>(1);
   const [lastSocketTimestamp, setLastSocketTimestamp] = useState<number>(Date.now());
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
   const [eventFeed, setEventFeed] = useState<{ id: string; time: string; text: string; type: 'info' | 'warn' | 'success' }[]>([]);
@@ -40,6 +50,41 @@ export default function App() {
     { id: 1, time: '13:15', text: 'Charging started at 12.5 kW. Estimated full charge at 06:00 AM.', type: 'info' },
     { id: 2, time: '13:18', text: 'Power supply temporarily adjusted to 11.0 kW to prioritize emergency delivery vehicle departure.', type: 'warn' },
   ]);
+
+  // Live 5-Second Real-Time Power Update Tick
+  useEffect(() => {
+    const liveInterval = setInterval(() => {
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastSocketTimestamp(Date.now());
+      setCycleCount(c => c + 1);
+
+      setPowerHistory(prev => {
+        const last = prev[prev.length - 1] || { tenantA: 41.7, tenantB: 25.1, tenantC: 18.3 };
+        const deltaA = Number((Math.random() * 0.8 - 0.4).toFixed(1));
+        const deltaB = Number((Math.random() * 0.6 - 0.3).toFixed(1));
+        const deltaC = Number((Math.random() * 0.4 - 0.2).toFixed(1));
+
+        const newA = Math.max(35, Math.min(45, Number((last.tenantA + deltaA).toFixed(1))));
+        const newB = Math.max(20, Math.min(32, Number((last.tenantB + deltaB).toFixed(1))));
+        const newC = Math.max(15, Math.min(22, Number((last.tenantC + deltaC).toFixed(1))));
+        const newTotal = Number((newA + newB + newC).toFixed(1));
+
+        return [
+          ...prev.slice(-15),
+          {
+            time: timeStr,
+            tenantA: newA,
+            tenantB: newB,
+            tenantC: newC,
+            total: newTotal,
+            cap: siteCapacityKw
+          }
+        ];
+      });
+    }, 5000);
+
+    return () => clearInterval(liveInterval);
+  }, [siteCapacityKw]);
 
   // Pricing conditions for Admin (Represented Level-Wise: Tier 1, Tier 2, Tier 3)
   const pricingConditions = [
