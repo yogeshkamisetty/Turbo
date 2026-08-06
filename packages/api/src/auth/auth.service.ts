@@ -21,8 +21,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Direct password match for dev seed or bcrypt check
-    const isMatch = pass === 'password123' || (await bcrypt.compare(pass, user.passwordHash).catch(() => false));
+    const isMatch = await bcrypt.compare(pass, user.passwordHash).catch(() => false);
     if (isMatch) {
       const { passwordHash, ...result } = user;
       return result;

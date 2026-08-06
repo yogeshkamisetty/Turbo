@@ -7,6 +7,7 @@ export interface ProfileOptions {
   durationSeconds?: number;
   purpose?: 'TxProfile' | 'TxDefaultProfile';
   transactionId?: number;
+  numberPhases?: number;
 }
 
 export function sendSetChargingProfile(
@@ -39,7 +40,7 @@ export function sendSetChargingProfile(
             {
               startPeriod: 0,
               limit: limitWatts,
-              numberPhases: 3
+              numberPhases: options.numberPhases || 3
             }
           ]
         }

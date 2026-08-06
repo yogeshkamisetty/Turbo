@@ -28,10 +28,20 @@ def solve_stage_b(req: AllocateRequest) -> AllocateResponse:
             s.max_charge_rate_kw, s.departure_time_iso, weight, s.debt_kwh
         )
         urgencies[s.session_id] = u
-        p_lp[s.session_id] = lp_solver.NumVar(0.0, s.max_charge_rate_kw, f"p_lp_{s.session_id}")
+    # Site capacity constraint
+    site_avail = max(0.0, req.site_cap_kw - req.base_load_kw)
+    site_constraint_lp = lp_solver.Constraint(0.0, site_avail, "site_capacity")
+    for s in req.sessions:
+        site_constraint_lp.SetCoefficient(p_lp[s.session_id], 1.0)
 
-    # Per-phase capacity constraints (L1, L2, L3)
-    phase_caps = {'L1': req.phases.L1, 'L2': req.phases.L2, 'L3': req.phases.L3}
+    # Per-circuit capacity constraints
+    circuit_constraints_lp = {}
+    for circ in req.circuits:
+        c_circ = lp_solver.Constraint(0.0, circ.cap_kw, f"circuit_capacity_{circ.circuit_id}")
+        for s in req.sessions:
+            if s.circuit_id == circ.circuit_id:
+                c_circ.SetCoefficient(p_lp[s.session_id], 1.0)
+        circuit_constraints_lp[circ.circuit_id] = c_circ
     phase_constraints_lp = {}
 
     for ph, cap_kw in phase_caps.items():
@@ -115,6 +125,15 @@ def solve_stage_b(req: AllocateRequest) -> AllocateResponse:
                 num_phases = len([p_name for p_name in s.phase_assignment.split(',') if p_name])
                 c_ph_milp.SetCoefficient(p[s.session_id], 1.0 / max(1, num_phases))
         milp_phase_constraints[ph] = c_ph_milp
+
+    # Per-circuit capacity constraints in CBC MILP solver
+    milp_circuit_constraints = {}
+    for circ in req.circuits:
+        c_circ_milp = milp_solver.Constraint(0.0, circ.cap_kw, f"milp_circuit_capacity_{circ.circuit_id}")
+        for s in req.sessions:
+            if s.circuit_id == circ.circuit_id:
+                c_circ_milp.SetCoefficient(p[s.session_id], 1.0)
+        milp_circuit_constraints[circ.circuit_id] = c_circ_milp
 
     # Tenant floor slack constraints: sum p_i + s_k >= min(F_k, demand_k)
     slack_vars = {}

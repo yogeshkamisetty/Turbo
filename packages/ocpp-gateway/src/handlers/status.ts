@@ -14,6 +14,17 @@ export async function handleStatusNotification(
       [status, conn.chargerDbId, connectorId || 1]
     );
 
+    const statusVal = payload.status || 'Available';
+    const errorVal = payload.errorCode || 'NoError';
+    const isHealthy = statusVal !== 'Faulted' && errorVal === 'NoError';
+
+    await dbPool.query(
+      `INSERT INTO charger_health (charger_id, status, error_code, is_healthy, updated_at)
+       SELECT id, $1, $2, $3, NOW() FROM chargers WHERE id = $4
+       ON CONFLICT (charger_id) DO UPDATE SET status = $1, error_code = $2, is_healthy = $3, updated_at = NOW()`,
+      [statusVal, errorVal, isHealthy, conn.chargerDbId]
+    ).catch(err => console.error('[OCPP Gateway] Error logging charger health:', err));
+
     await dbPool.query(
       `UPDATE chargers SET status = $1 WHERE id = $2`,
       [status, conn.chargerDbId]

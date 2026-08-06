@@ -86,6 +86,17 @@ export class SchedulerService {
       }),
     };
 
+    const currentBucketIndex = Math.floor((new Date().getHours() * 60 + new Date().getMinutes()) / 15);
+    await this.sessionRepo.query(
+      `INSERT INTO arrival_patterns (site_id, bucket_index, avg_active_sessions, avg_base_load_kw, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (site_id, bucket_index) DO UPDATE SET
+         avg_active_sessions = (arrival_patterns.avg_active_sessions * 0.8) + (EXCLUDED.avg_active_sessions * 0.2),
+         avg_base_load_kw = (arrival_patterns.avg_base_load_kw * 0.8) + (EXCLUDED.avg_base_load_kw * 0.2),
+         updated_at = NOW()`,
+      [site.id, currentBucketIndex, activeSessions.length, parseFloat(site.baseLoadKw as any || 5.0)]
+    ).catch(() => {});
+
     const planResult = await this.optimizerService.plan(planReq);
     if (planResult) {
       this.logger.log(`Stage A Horizon Planner successful! Optimized Peak Draw: ${planResult.peak_draw_kw} kW`);
@@ -122,6 +133,8 @@ export class SchedulerService {
     const tariffPriceNow = currentTariff ? parseFloat(currentTariff.pricePerKwh as any) : 0.15;
     const carbonGco2Now = currentTariff ? parseFloat(currentTariff.carbonGco2PerKwh as any || 250) : 250.0;
 
+    const circuits = await this.sessionRepo.query(`SELECT id, cap_kw FROM circuits WHERE site_id = $1`, [site.id]);
+
     // Format request for Python optimizer
     const optimizerReq = {
       site_cap_kw: parseFloat(site.capKw as any),
@@ -131,18 +144,24 @@ export class SchedulerService {
         L2: parseFloat(site.capPhaseB as any),
         L3: parseFloat(site.capPhaseC as any),
       },
+      circuits: circuits.map(c => ({
+        circuit_id: c.id,
+        cap_kw: parseFloat(c.cap_kw),
+      })),
       entitlements: entitlements.map(e => ({
         tenant_id: e.tenantId,
         floor_kw: parseFloat(e.floorKw as any),
         tier_weight: parseFloat(e.tierWeight as any),
       })),
       sessions: activeSessions.map(s => {
+        const charger = chargerMap.get(s.chargerId);
         const vehicle = s.vehicleId ? vehicleMap.get(s.vehicleId) : null;
         const fairness = fairnessMap.get(s.id);
         return {
           session_id: s.id,
           tenant_id: s.tenantId,
           charger_id: s.chargerId,
+          circuit_id: charger ? charger.circuitId : null,
           connector_index: s.connectorIndex,
           current_soc: parseFloat(s.currentSoc as any),
           target_soc: parseFloat(s.targetSoc as any),
@@ -152,7 +171,7 @@ export class SchedulerService {
           departure_time_iso: s.departureTime ? s.departureTime.toISOString() : new Date(Date.now() + 4*3600*1000).toISOString(),
           phase_assignment: s.phaseAssignment || 'L1,L2,L3',
           previous_kw: parseFloat(s.measuredKw as any || s.allocatedKw as any),
-          debt_kwh: fairness ? parseFloat(fairness.debtKwh as any || 0) : 0.0, // Read debt_kwh into solver!
+          debt_kwh: fairness ? parseFloat(fairness.debtKwh as any || 0) : 0.0,
         };
       }),
       tariff_price_now: tariffPriceNow,
