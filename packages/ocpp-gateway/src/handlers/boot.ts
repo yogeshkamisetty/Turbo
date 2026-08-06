@@ -42,13 +42,28 @@ export async function handleBootNotification(
   ];
   conn.ws.send(JSON.stringify(response));
 
-  // 4. Install Tier-0 TxDefaultProfile (Offline safety ceiling: C_site / 8 chargers = 12.5 kW)
-  setTimeout(() => {
-    sendSetChargingProfile(conn, {
-      connectorId: 0,
-      allocatedKw: 12.5,
-      durationSeconds: 86400, // 24 hours fallback
-      purpose: 'TxDefaultProfile'
-    });
+  // 4. Install Tier-0 TxDefaultProfile (Dynamic offline safety ceiling: C_site / N_chargers)
+  setTimeout(async () => {
+    try {
+      const siteRes = await dbPool.query(`SELECT cap_kw FROM sites LIMIT 1`);
+      const countRes = await dbPool.query(`SELECT COUNT(*) as cnt FROM chargers`);
+      const capKw = parseFloat(siteRes.rows[0]?.cap_kw || 100);
+      const cnt = parseInt(countRes.rows[0]?.cnt || 8, 10);
+      const tier0LimitKw = Math.max(4.14, Math.floor((capKw / Math.max(1, cnt)) * 10) / 10);
+
+      sendSetChargingProfile(conn, {
+        connectorId: 0,
+        allocatedKw: tier0LimitKw,
+        durationSeconds: 86400, // 24 hours fallback
+        purpose: 'TxDefaultProfile'
+      });
+    } catch (e) {
+      sendSetChargingProfile(conn, {
+        connectorId: 0,
+        allocatedKw: 12.5,
+        durationSeconds: 86400,
+        purpose: 'TxDefaultProfile'
+      });
+    }
   }, 1000);
 }

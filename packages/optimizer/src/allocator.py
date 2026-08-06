@@ -177,16 +177,16 @@ def solve_stage_b(req: AllocateRequest) -> AllocateResponse:
         if alloc_kw < s.max_charge_rate_kw:
             if abs(dual_site) > 0.001:
                 binding_constr = "Site Capacity"
-                shadow_price = round(dual_site * 100, 2)
-                reason = f"Site capacity is binding ({shadow_price} ₹/kW). High-urgency departures outrank this session."
+                shadow_price = round(dual_site * (req.tariff_price_now * 100), 2)
+                reason = f"Site capacity is binding (Marginal Congestion Shadow Price: ₹{shadow_price}/kW). High-urgency departures outrank this session."
             elif tenant_duals.get(s.tenant_id, 0.0) > 0.001:
-                binding_constr = "Tenant Floor Floor Protection"
-                shadow_price = round(tenant_duals[s.tenant_id] * 100, 2)
+                binding_constr = "Tenant Floor Protection"
+                shadow_price = round(tenant_duals[s.tenant_id] * (req.tariff_price_now * 100), 2)
                 reason = f"Protected tenant floor guarantee of {tenant_floors.get(s.tenant_id, 0)} kW is currently active."
             elif not is_on:
                 binding_constr = "Min-Current Disjunction Floor"
                 shadow_price = 0.0
-                reason = f"Paused — rotating back in ~4 min to satisfy 6A IEC floor without exceeding site limit."
+                reason = f"Paused — rotating in active priority queue to satisfy 6A IEC floor without exceeding site limit."
             else:
                 reason = "Allocation optimized by laxity urgency score."
         else:

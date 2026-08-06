@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line } from 'recharts';
 import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot } from 'lucide-react';
-import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, createSocketConnection } from './api/client';
+import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, fetchBenchmark, createSocketConnection } from './api/client';
 
 export default function App() {
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
@@ -16,6 +16,7 @@ export default function App() {
   // Live state
   const [powerHistory, setPowerHistory] = useState<any[]>([]);
   const [invoiceData, setInvoiceData] = useState<any>(null);
+  const [benchmarkMetrics, setBenchmarkMetrics] = useState<any>(null);
   const [sessions, setSessions] = useState<any[]>([
     { id: 's1', vehicle: 'Van MH-12-AB-1001', tenant: 'Logistics Fleet A', charger: 'CP-001', currentSoc: 42, targetSoc: 90, allocatedKw: 12.5, state: 'Charging', departureTime: '06:00', rank: 1 },
     { id: 's2', vehicle: 'Van MH-12-AB-1002', tenant: 'Logistics Fleet A', charger: 'CP-002', currentSoc: 58, targetSoc: 85, allocatedKw: 11.0, state: 'Charging', departureTime: '06:30', rank: 2 },
@@ -26,7 +27,7 @@ export default function App() {
   ]);
 
   // ACN-Data 3-Baseline comparison series
-  const acnBenchmarkData = [
+  const acnBenchmarkData = benchmarkMetrics?.series || [
     { time: '00:00', uncontrolled: 145, naive: 98, switchyard: 95 },
     { time: '02:00', uncontrolled: 168, naive: 100, switchyard: 96 },
     { time: '04:00', uncontrolled: 182, naive: 100, switchyard: 96 },
@@ -35,6 +36,15 @@ export default function App() {
     { time: '10:00', uncontrolled: 40, naive: 40, switchyard: 38 },
   ];
 
+  // Fetch benchmark data when switching to BENCHMARK tab
+  useEffect(() => {
+    if (activeTab === 'BENCHMARK') {
+      fetchBenchmark().then(res => {
+        if (res) setBenchmarkMetrics(res);
+      });
+    }
+  }, [activeTab]);
+
   // Initialize Auth & Socket.IO Connection
   useEffect(() => {
     async function initBackend() {
@@ -42,7 +52,7 @@ export default function App() {
       await loginAsRole(email, 'password123');
 
       const realSessions = await fetchSessions();
-      if (Array.isArray(realSessions) && realSessions.length > 0) {
+      if (Array.isArray(realSessions)) {
         setSessions(realSessions);
       }
 
@@ -53,13 +63,14 @@ export default function App() {
       const socket = createSocketConnection();
       socket.on('site:power_update', (data: any) => {
         setControlTier(data.tier || 2);
+        const map = data.tenantPowerMap || {};
         setPowerHistory(prev => [
           ...prev.slice(-20),
           {
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            tenantA: Math.round(data.totalAllocatedKw * 0.5),
-            tenantB: Math.round(data.totalAllocatedKw * 0.3),
-            tenantC: Math.round(data.totalAllocatedKw * 0.2),
+            tenantA: map['11111111-1111-1111-1111-111111111111'] || Math.round(data.totalAllocatedKw * 0.5),
+            tenantB: map['22222222-2222-2222-2222-222222222222'] || Math.round(data.totalAllocatedKw * 0.3),
+            tenantC: map['33333333-3333-3333-3333-333333333333'] || Math.round(data.totalAllocatedKw * 0.2),
             total: data.totalAllocatedKw,
             cap: data.siteCapKw || 100
           }

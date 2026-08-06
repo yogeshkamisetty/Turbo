@@ -70,3 +70,12 @@ export async function fetchCopilotAnalysis(query: string) {
     return null;
   }
 }
+
+export async function fetchBenchmark() {
+  try {
+    const res = await apiClient.post('/sessions/benchmark');
+    return res.data;
+  } catch (e) {
+    return null;
+  }
+}

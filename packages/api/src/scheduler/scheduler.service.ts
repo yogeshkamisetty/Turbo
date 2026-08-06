@@ -241,10 +241,20 @@ export class SchedulerService {
         }
       }
 
+      const tenantPowerMap: Record<string, number> = {};
+      for (const item of result.allocations) {
+        const session = activeSessions.find(s => s.id === item.session_id);
+        if (session) {
+          tenantPowerMap[session.tenantId] = Math.round(((tenantPowerMap[session.tenantId] || 0) + item.allocated_kw) * 10) / 10;
+        }
+      }
+
       this.wsGateway.broadcastAll('site:power_update', {
         timestamp: new Date().toISOString(),
         totalAllocatedKw: result.site_total_allocated_kw,
-        siteCapKw: site.capKw,
+        tenantPowerMap,
+        siteCapKw: parseFloat(site.capKw as any),
+        tier: 2,
       });
     }
   }

@@ -8,10 +8,10 @@ INSERT INTO tenants (id, name) VALUES
 
 -- 2. Users (Password is 'password123' hashed with bcrypt or plain for seed dev)
 INSERT INTO users (id, tenant_id, email, password_hash, role, name) VALUES
-('a0000000-0000-0000-0000-000000000001', NULL, 'admin@switchyard.io', '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW', 'ADMIN', 'System Admin'),
-('a0000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'fleet_mgr@logistics.com', '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW', 'TENANT_MGR', 'Alice Manager'),
-('a0000000-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', 'delivery_mgr@express.com', '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW', 'TENANT_MGR', 'Bob Manager'),
-('a0000000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'driver1@logistics.com', '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW', 'DRIVER', 'Driver Dave');
+('a0000000-0000-0000-0000-000000000001', NULL, 'admin@switchyard.io', '$2b$10$dcGD8VJwtYYLAHbmSbd5G./OPf3uF1nOmlgQOfyH3z82mr38AQhyG', 'ADMIN', 'System Admin'),
+('a0000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'fleet_mgr@logistics.com', '$2b$10$dcGD8VJwtYYLAHbmSbd5G./OPf3uF1nOmlgQOfyH3z82mr38AQhyG', 'TENANT_MGR', 'Alice Manager'),
+('a0000000-0000-0000-0000-000000000003', '22222222-2222-2222-2222-222222222222', 'delivery_mgr@express.com', '$2b$10$dcGD8VJwtYYLAHbmSbd5G./OPf3uF1nOmlgQOfyH3z82mr38AQhyG', 'TENANT_MGR', 'Bob Manager'),
+('a0000000-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'driver1@logistics.com', '$2b$10$dcGD8VJwtYYLAHbmSbd5G./OPf3uF1nOmlgQOfyH3z82mr38AQhyG', 'DRIVER', 'Driver Dave');
 
 -- 3. Sites
 INSERT INTO sites (id, name, cap_kw, cap_phase_a, cap_phase_b, cap_phase_c, base_load_kw) VALUES
