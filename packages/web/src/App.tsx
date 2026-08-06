@@ -5,6 +5,7 @@ import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAna
 import { AuthModal } from './components/AuthModal';
 import { DatabaseExplorer } from './components/DatabaseExplorer';
 import { AdminControlModal } from './components/AdminControlModal';
+import { UserManagementPanel } from './components/UserManagementPanel';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -595,6 +596,9 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            {/* User & Driver Directory Management */}
+            <UserManagementPanel currentRole="ADMIN" />
           </div>
         )}
 
@@ -757,6 +761,9 @@ export default function App() {
                 </table>
               </div>
             </div>
+
+            {/* Tenant Fleet Driver Directory */}
+            <UserManagementPanel currentRole="TENANT_MGR" />
           </div>
         )}
 
