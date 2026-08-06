@@ -14,7 +14,7 @@ export default function App() {
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
   const [controlTier, setControlTier] = useState<number>(2);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'LIVE' | 'BENCHMARK' | 'COPILOT' | 'DB_EXPLORER'>('LIVE');
+  const [activeTab, setActiveTab] = useState<'LIVE' | 'BENCHMARK' | 'DB_EXPLORER'>('LIVE');
   const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
   const [copilotQuery, setCopilotQuery] = useState<string>('Why was my fleet throttled last night?');
   const [copilotResult, setCopilotResult] = useState<any>(null);
@@ -245,12 +245,6 @@ export default function App() {
             className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'BENCHMARK' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
           >
             <BarChart3 className="w-3.5 h-3.5" /> ACN Benchmark
-          </button>
-          <button
-            onClick={() => setActiveTab('COPILOT')}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 ${activeTab === 'COPILOT' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200'}`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-300" /> AI Fleet Copilot
           </button>
           <button
             onClick={() => setActiveTab('DB_EXPLORER')}
@@ -788,48 +782,6 @@ export default function App() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'COPILOT' && (
-          <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2 tracking-tight">
-                <Sparkles className="w-6 h-6 text-cyan-400" /> AI Fleet Copilot & Bottleneck Assistant
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Powered by Google Gemini 1.5 Flash API analyzing historical D2 allocation receipts and dual shadow prices.
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={copilotQuery}
-                onChange={(e) => setCopilotQuery(e.target.value)}
-                className="flex-1 bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-cyan-500 shadow-inner"
-                placeholder="Ask copilot about fleet delays..."
-              />
-              <button
-                onClick={runCopilot}
-                disabled={copilotLoading}
-                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
-              >
-                {copilotLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Analyze Fleet
-              </button>
-            </div>
-
-            {copilotResult && (
-              <div className="bg-slate-950/90 p-6 rounded-2xl border border-slate-800/80 space-y-4 text-xs shadow-lg">
-                <div className="text-sm font-bold text-cyan-400 flex items-center gap-2">
-                  <Bot className="w-4 h-4" /> Copilot Analysis Summary:
-                </div>
-                <div className="text-slate-200 leading-relaxed text-sm">{copilotResult.summaryText}</div>
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-amber-300 font-medium leading-relaxed">
-                  💡 Operational Recommendation: {copilotResult.recommendation}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
