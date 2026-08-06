@@ -32,11 +32,38 @@ export default function App() {
     { id: 2, time: '13:18', text: 'Power supply temporarily adjusted to 11.0 kW to prioritize emergency delivery vehicle departure.', type: 'warn' },
   ]);
 
-  // Pricing conditions for Admin
+  // Pricing conditions for Admin (Represented Level-Wise: Tier 1, Tier 2, Tier 3)
   const pricingConditions = [
-    { period: 'Peak Hours (18:00 - 22:00)', price: '₹11.80 / kWh', demandCharge: '₹15.00 / kW', carbon: '650 gCO2/kWh', status: 'Active' },
-    { period: 'Solar Peak (10:00 - 16:00)', price: '₹5.20 / kWh', demandCharge: '₹15.00 / kW', carbon: '220 gCO2/kWh', status: 'Low Carbon' },
-    { period: 'Off-Peak Night (22:00 - 06:00)', price: '₹4.10 / kWh', demandCharge: '₹15.00 / kW', carbon: '420 gCO2/kWh', status: 'Economy' },
+    {
+      tier: 'Tier 1 Level',
+      levelName: 'Tier 1: Peak Grid Stress',
+      period: '18:00 - 22:00 (Evening Peak)',
+      price: '₹11.80 / kWh',
+      demandCharge: '₹15.00 / kW',
+      carbon: '650 gCO2/kWh',
+      status: 'High Load',
+      badgeColor: 'bg-red-500/10 text-red-400 border-red-500/30'
+    },
+    {
+      tier: 'Tier 2 Level',
+      levelName: 'Tier 2: Standard Day Load',
+      period: '06:00 - 10:00 & 16:00 - 18:00',
+      price: '₹7.50 / kWh',
+      demandCharge: '₹15.00 / kW',
+      carbon: '420 gCO2/kWh',
+      status: 'Normal Load',
+      badgeColor: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+    },
+    {
+      tier: 'Tier 3 Level',
+      levelName: 'Tier 3: Green Solar & Off-Peak',
+      period: '10:00 - 16:00 & 22:00 - 06:00',
+      price: '₹4.10 / kWh',
+      demandCharge: '₹15.00 / kW',
+      carbon: '220 gCO2/kWh',
+      status: 'Clean Surplus',
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+    },
   ];
 
   // ACN Benchmark series
@@ -385,18 +412,31 @@ export default function App() {
               </div>
             </div>
 
-            {/* Pricing According Conditions Table */}
+            {/* Level-Wise Tiers 1, 2, 3 Pricing Conditions */}
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-4">
               <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-400" /> Time-of-Use Pricing According to Grid Conditions
+                <DollarSign className="w-5 h-5 text-emerald-400" /> Time-of-Use Pricing According to Grid Conditions (Level-Wise Tiers 1, 2, 3)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {pricingConditions.map((cond, idx) => (
-                  <div key={idx} className="bg-slate-950/80 p-4 rounded-xl border border-slate-800 space-y-2">
-                    <div className="text-xs font-bold text-white">{cond.period}</div>
-                    <div className="text-sm font-black text-cyan-400">{cond.price}</div>
-                    <div className="text-xs text-slate-400">Demand Charge: {cond.demandCharge}</div>
-                    <div className="text-[10px] text-slate-500">Carbon Intensity: {cond.carbon}</div>
+                  <div key={idx} className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden group hover:border-cyan-500/40 transition">
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full border ${cond.badgeColor}`}>
+                        {cond.tier}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-semibold">{cond.status}</span>
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-extrabold text-white">{cond.levelName}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{cond.period}</div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 space-y-1">
+                      <div className="text-2xl font-black text-cyan-400">{cond.price}</div>
+                      <div className="text-xs text-slate-400">Demand Charge: <strong className="text-slate-200">{cond.demandCharge}</strong></div>
+                      <div className="text-[11px] text-slate-500">Carbon Intensity: <span className="text-amber-300 font-medium">{cond.carbon}</span></div>
+                    </div>
                   </div>
                 ))}
               </div>
