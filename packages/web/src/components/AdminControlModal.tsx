@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Zap, Building2, ShieldCheck, DollarSign, Check, X, Server, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Zap, Building2, ShieldCheck, DollarSign, Check, X, Server, AlertCircle, UserPlus, Mail } from 'lucide-react';
 
 interface AdminControlModalProps {
   onClose: () => void;
@@ -9,7 +9,7 @@ interface AdminControlModalProps {
 }
 
 export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUpdateEntitlement }: AdminControlModalProps) {
-  const [activeTab, setActiveTab] = useState<'SITES' | 'CHARGERS' | 'ENTITLEMENTS'>('SITES');
+  const [activeTab, setActiveTab] = useState<'SITES' | 'CHARGERS' | 'ENTITLEMENTS' | 'INVITE_TENANT'>('SITES');
 
   // Form states
   const [siteName, setSiteName] = useState<string>('Metro Logistics Hub');
@@ -22,6 +22,10 @@ export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUp
 
   const [selectedTenant, setSelectedTenant] = useState<string>('Logistics Fleet A');
   const [newFloorKw, setNewFloorKw] = useState<number>(50.0);
+
+  const [inviteCompanyName, setInviteCompanyName] = useState<string>('Urban Eco Cabs D');
+  const [inviteManagerEmail, setInviteManagerEmail] = useState<string>('fleet@urbaneco.com');
+  const [inviteInitialFloor, setInviteInitialFloor] = useState<number>(25.0);
 
   const [successMessage, setSuccessMessage] = useState<string>('');
 
@@ -97,6 +101,14 @@ export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUp
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" /> Company Plans
+          </button>
+          <button
+            onClick={() => setActiveTab('INVITE_TENANT')}
+            className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
+              activeTab === 'INVITE_TENANT' ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Invite Tenant
           </button>
         </div>
 
@@ -234,6 +246,62 @@ export function AdminControlModal({ onClose, onUpdateSiteCap, onAddCharger, onUp
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-cyan-500/20"
             >
               Save Company Entitlement Floor
+            </button>
+          </form>
+        )}
+
+        {/* Form 4: Invite Tenant Company */}
+        {activeTab === 'INVITE_TENANT' && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onUpdateEntitlement(inviteCompanyName, inviteInitialFloor);
+              setSuccessMessage(`Invitation sent to ${inviteManagerEmail} for ${inviteCompanyName} (${inviteInitialFloor} kW floor)!`);
+              setTimeout(() => setSuccessMessage(''), 3500);
+            }}
+            className="space-y-4 text-xs"
+          >
+            <div className="space-y-1.5">
+              <label className="text-slate-300 font-semibold">Company / Tenant Name</label>
+              <input
+                type="text"
+                required
+                value={inviteCompanyName}
+                onChange={(e) => setInviteCompanyName(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-500"
+                placeholder="e.g. Urban Eco Cabs D"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-slate-300 font-semibold">Fleet Manager Email</label>
+                <input
+                  type="email"
+                  required
+                  value={inviteManagerEmail}
+                  onChange={(e) => setInviteManagerEmail(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-500"
+                  placeholder="manager@domain.com"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-slate-300 font-semibold">Initial Floor (kW)</label>
+                <input
+                  type="number"
+                  value={inviteInitialFloor}
+                  onChange={(e) => setInviteInitialFloor(Number(e.target.value))}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
+            >
+              <UserPlus className="w-4 h-4" /> Send Tenant Invite & Provision RLS Floor
             </button>
           </form>
         )}

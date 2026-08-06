@@ -919,12 +919,22 @@ export default function App() {
               </div>
             </div>
 
-            <button
-              onClick={() => setShowInvoiceModal(false)}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-cyan-500/20"
-            >
-              Done
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  alert('Downloading Switchyard D1 Usage Invoice (PDF/CSV)...');
+                }}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold py-2.5 rounded-xl text-xs border border-slate-700 transition flex items-center justify-center gap-1.5"
+              >
+                <FileText className="w-4 h-4 text-cyan-400" /> Download Invoice
+              </button>
+              <button
+                onClick={() => setShowInvoiceModal(false)}
+                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-cyan-500/20"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
