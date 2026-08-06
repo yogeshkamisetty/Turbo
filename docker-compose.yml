@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: switchyard-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-switchyard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-switchyard_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-switchyard}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-switchyard} -d ${POSTGRES_DB:-switchyard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: switchyard-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ocpp-gateway:
+    build:
+      context: ./packages/ocpp-gateway
+      dockerfile: Dockerfile
+    container_name: switchyard-gateway
+    restart: always
+    ports:
+      - "9000:9000"
+    environment:
+      PORT: 9000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: switchyard
+      POSTGRES_PASSWORD: switchyard_secret
+      POSTGRES_DB: switchyard
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OPTIMIZER_URL: http://optimizer:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  optimizer:
+    build:
+      context: ./packages/optimizer
+      dockerfile: Dockerfile
+    container_name: switchyard-optimizer
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+    container_name: switchyard-api
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: switchyard
+      POSTGRES_PASSWORD: switchyard_secret
+      POSTGRES_DB: switchyard
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OPTIMIZER_URL: http://optimizer:8000
+      JWT_SECRET: super_secret_switchyard_jwt_key_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      optimizer:
+        condition: service_healthy
+
+  simulator:
+    build:
+      context: ./packages/simulator
+      dockerfile: Dockerfile
+    container_name: switchyard-simulator
+    restart: always
+    environment:
+      GATEWAY_URL: ws://ocpp-gateway:9000
+      CHARGER_COUNT: 8
+    depends_on:
+      - ocpp-gateway
+
+volumes:
+  pgdata:
