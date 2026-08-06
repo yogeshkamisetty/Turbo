@@ -997,7 +997,14 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'DB_EXPLORER' && role !== 'DRIVER' && <DatabaseExplorer userRole={role} />}
+        {activeTab === 'DB_EXPLORER' && role !== 'DRIVER' && (
+          <DatabaseExplorer
+            userRole={role}
+            registeredChargersCount={registeredChargersCount}
+            companyFloors={companyFloors}
+            sessions={sessions}
+          />
+        )}
 
       </main>
 

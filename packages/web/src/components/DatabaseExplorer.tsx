@@ -4,12 +4,54 @@ import { Database, Table, Shield, Terminal, CheckCircle2, ChevronRight, RefreshC
 interface DatabaseExplorerProps {
   userRole?: 'ADMIN' | 'TENANT_MGR' | 'DRIVER';
   onClose?: () => void;
+  registeredChargersCount?: number;
+  companyFloors?: Record<string, number>;
+  sessions?: any[];
 }
 
-export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplorerProps) {
+export function DatabaseExplorer({
+  userRole = 'ADMIN',
+  onClose,
+  registeredChargersCount = 8,
+  companyFloors = { 'Logistics Fleet A': 40, 'Delivery Express B': 30, 'Green Transport C': 20 },
+  sessions = []
+}: DatabaseExplorerProps) {
   const [activeTable, setActiveTable] = useState<string>(
     userRole === 'DRIVER' ? 'sessions' : userRole === 'TENANT_MGR' ? 'sessions' : 'tenants'
   );
+
+  // Dynamic chargers row generation matching live registered chargers count
+  const dynamicChargerRows = Array.from({ length: Math.max(6, registeredChargersCount) }, (_, i) => {
+    const cpId = `CP-00${i + 1}`;
+    const activeSess = sessions.find(s => s.charger === cpId);
+    return {
+      charger_id: `ch-00${i + 1}`,
+      site_id: 'b0000000-0000-4000-8000-000000000001',
+      ocpp_endpoint: `${cpId} (ws://gateway:9000)`,
+      max_power: '22.00 kW',
+      status: activeSess ? 'Occupied' : 'Available',
+    };
+  });
+
+  // Dynamic sessions row generation matching live active sessions
+  const dynamicSessionRows = (sessions && sessions.length > 0)
+    ? sessions.map(s => ({
+        session_id: `s-${s.id}`,
+        charger_id: s.charger || 'CP-001',
+        vehicle_id: s.vehicle || 'v-1001',
+        tenant_id: s.tenant === 'Delivery Express B' ? '22222222-2222...' : '11111111-1111...',
+        start_end: `13:00 / ${s.departureTime}`,
+        kwh: `${(s.allocatedKw ? s.allocatedKw * 3.4 : 35.0).toFixed(1)} kWh`,
+        allocated_power: `${s.allocatedKw || 0} kW ${s.state ? `(${s.state})` : ''}`,
+      }))
+    : [
+        { session_id: 's1-111111', charger_id: 'CP-001', vehicle_id: 'v-1001 (Van A1)', tenant_id: '11111111-1111...', start_end: '13:00 / 06:00 AM', kwh: '42.5 kWh', allocated_power: '12.5 kW' },
+        { session_id: 's2-111111', charger_id: 'CP-002', vehicle_id: 'v-1002 (Van A2)', tenant_id: '11111111-1111...', start_end: '13:05 / 06:30 AM', kwh: '38.0 kWh', allocated_power: '11.0 kW' },
+        { session_id: 's3-111111', charger_id: 'CP-003', vehicle_id: 'v-1004 (Truck A4)', tenant_id: '11111111-1111...', start_end: '13:10 / 05:45 AM', kwh: '62.0 kWh', allocated_power: '18.2 kW' },
+        { session_id: 's4-111111', charger_id: 'CP-004', vehicle_id: 'v-1003 (Van A3)', tenant_id: '11111111-1111...', start_end: '13:15 / 07:15 AM', kwh: '15.2 kWh', allocated_power: '0.0 kW (Paused)' },
+        { session_id: 's5-222222', charger_id: 'CP-005', vehicle_id: 'v-2001 (Express B1)', tenant_id: '22222222-2222...', start_end: '13:20 / 06:15 AM', kwh: '31.4 kWh', allocated_power: '14.1 kW' },
+        { session_id: 's6-222222', charger_id: 'CP-006', vehicle_id: 'v-2002 (Express B2)', tenant_id: '22222222-2222...', start_end: '13:25 / 06:45 AM', kwh: '28.9 kWh', allocated_power: '11.0 kW' },
+      ];
 
   // Full raw table data dictionary with sensitive fields & RLS policies
   const rawTableData: Record<string, { query: string; columns: string[]; rows: Record<string, any>[] }> = {
@@ -17,34 +59,20 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
       query: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM tenants JOIN entitlements ON tenants.id = entitlements.tenant_id;`,
       columns: ['tenant_id', 'company_name', 'site_id', 'biding_plan'],
       rows: [
-        { tenant_id: '11111111-1111-1111-1111-111111111111', company_name: 'Logistics Fleet A', site_id: 'b0000000-0000...', biding_plan: '40.00 kW Guaranteed Floor' },
-        { tenant_id: '22222222-2222-2222-2222-222222222222', company_name: 'Delivery Express B', site_id: 'b0000000-0000...', biding_plan: '30.00 kW Guaranteed Floor' },
-        { tenant_id: '33333333-3333-3333-3333-333333333333', company_name: 'City Cabs C', site_id: 'b0000000-0000...', biding_plan: '20.00 kW Guaranteed Floor' },
+        { tenant_id: '11111111-1111-1111-1111-111111111111', company_name: 'Logistics Fleet A', site_id: 'b0000000-0000-4000-8000-000000000001', biding_plan: `${companyFloors['Logistics Fleet A'] || 40.00} kW Guaranteed Floor` },
+        { tenant_id: '22222222-2222-2222-2222-222222222222', company_name: 'Delivery Express B', site_id: 'b0000000-0000-4000-8000-000000000001', biding_plan: `${companyFloors['Delivery Express B'] || 30.00} kW Guaranteed Floor` },
+        { tenant_id: '33333333-3333-3333-3333-333333333333', company_name: 'Green Transport C', site_id: 'b0000000-0000-4000-8000-000000000001', biding_plan: `${companyFloors['Green Transport C'] || 20.00} kW Guaranteed Floor` },
       ],
     },
     chargers: {
       query: `SELECT id AS charger_id, site_id, ocpp_id AS ocpp_endpoint, max_kw AS max_power, status FROM chargers ORDER BY ocpp_id;`,
       columns: ['charger_id', 'site_id', 'ocpp_endpoint', 'max_power', 'status'],
-      rows: [
-        { charger_id: 'ch-001', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-001 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
-        { charger_id: 'ch-002', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-002 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
-        { charger_id: 'ch-003', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-003 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
-        { charger_id: 'ch-004', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-004 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
-        { charger_id: 'ch-005', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-005 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
-        { charger_id: 'ch-006', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-006 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
-      ],
+      rows: dynamicChargerRows,
     },
     sessions: {
       query: `SELECT id AS session_id, charger_id, vehicle_id, tenant_id, start_time || ' / ' || departure_time AS start_end, delivered_kwh AS kwh, allocated_kw AS allocated_power FROM sessions ORDER BY id;`,
       columns: ['session_id', 'charger_id', 'vehicle_id', 'tenant_id', 'start_end', 'kwh', 'allocated_power'],
-      rows: [
-        { session_id: 's1-111111', charger_id: 'CP-001', vehicle_id: 'v-1001 (Van A1)', tenant_id: '11111111-1111...', start_end: '13:00 / 06:00 AM', kwh: '42.5 kWh', allocated_power: '12.5 kW' },
-        { session_id: 's2-111111', charger_id: 'CP-002', vehicle_id: 'v-1002 (Van A2)', tenant_id: '11111111-1111...', start_end: '13:05 / 06:30 AM', kwh: '38.0 kWh', allocated_power: '11.0 kW' },
-        { session_id: 's3-111111', charger_id: 'CP-003', vehicle_id: 'v-1004 (Truck A4)', tenant_id: '11111111-1111...', start_end: '13:10 / 05:45 AM', kwh: '62.0 kWh', allocated_power: '18.2 kW' },
-        { session_id: 's4-111111', charger_id: 'CP-004', vehicle_id: 'v-1003 (Van A3)', tenant_id: '11111111-1111...', start_end: '13:15 / 07:15 AM', kwh: '15.2 kWh', allocated_power: '0.0 kW (Paused)' },
-        { session_id: 's5-222222', charger_id: 'CP-005', vehicle_id: 'v-2001 (Express B1)', tenant_id: '22222222-2222...', start_end: '13:20 / 06:15 AM', kwh: '31.4 kWh', allocated_power: '14.1 kW' },
-        { session_id: 's6-222222', charger_id: 'CP-006', vehicle_id: 'v-2002 (Express B2)', tenant_id: '22222222-2222...', start_end: '13:25 / 06:45 AM', kwh: '28.9 kWh', allocated_power: '11.0 kW' },
-      ],
+      rows: dynamicSessionRows,
     },
     vehicles: {
       query: `SELECT id AS vehicle_id, tenant_id, battery_capacity_kwh AS battery_capacity, driver_name AS driver, priority_tier FROM vehicles ORDER BY id;`,
@@ -53,7 +81,7 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
         { vehicle_id: 'v-1001', tenant_id: '11111111-1111...', battery_capacity: '80.00 kWh', driver: 'Driver Dave', priority_tier: 'Rank #2 (Normal)' },
         { vehicle_id: 'v-1002', tenant_id: '11111111-1111...', battery_capacity: '80.00 kWh', driver: 'Driver Alex', priority_tier: 'Rank #3 (Flexible)' },
         { vehicle_id: 'v-1004', tenant_id: '11111111-1111...', battery_capacity: '120.00 kWh', driver: 'Driver Sam', priority_tier: 'Rank #1 (Highest)' },
-        { vehicle_id: 'v-2001', tenant_id: '22222222-2222...', battery_capacity: '90.00 kWh', driver: 'Driver Bob', priority_tier: 'Rank #1 (Urgent)' },
+        { vehicle_id: 'v-2001', tenant_id: '22222222-2222...', battery_capacity: '90.00 kWh', driver: 'Driver Michael', priority_tier: 'Rank #1 (Urgent)' },
       ],
     },
     invoices: {
@@ -62,7 +90,7 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
       rows: [
         { invoice_id: 'inv-2026-08A', tenant_id: '11111111-1111... (Fleet A)', period: 'Aug 2026', total_kwh: '142.50 kWh', amount: '₹2,285.50' },
         { invoice_id: 'inv-2026-08B', tenant_id: '22222222-2222... (Express B)', period: 'Aug 2026', total_kwh: '98.20 kWh', amount: '₹1,475.00' },
-        { invoice_id: 'inv-2026-08C', tenant_id: '33333333-3333... (City Cabs)', period: 'Aug 2026', total_kwh: '75.40 kWh', amount: '₹1,130.00' },
+        { invoice_id: 'inv-2026-08C', tenant_id: '33333333-3333... (Green Transport C)', period: 'Aug 2026', total_kwh: '75.40 kWh', amount: '₹1,130.00' },
       ],
     },
     users: {
@@ -71,194 +99,179 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
       rows: [
         { id: 'usr-001', email: 'admin@switchyard.io', role: 'ADMIN', password_hash: '🔒 $2b$10$e8Z... [REDACTED BY RLS]', tenant_id: 'SYSTEM_GLOBAL' },
         { id: 'usr-002', email: 'fleet_mgr@logistics.com', role: 'TENANT_MGR', password_hash: '🔒 $2b$10$w9L... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
-        { id: 'usr-003', email: 'driver1@logistics.com', role: 'DRIVER', password_hash: '🔒 $2b$10$k1M... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+        { id: 'usr-003', email: 'delivery_mgr@express.com', role: 'TENANT_MGR', password_hash: '🔒 $2b$10$x4P... [REDACTED BY RLS]', tenant_id: '22222222-2222...' },
+        { id: 'usr-004', email: 'driver1@logistics.com', role: 'DRIVER', password_hash: '🔒 $2b$10$k1M... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+        { id: 'usr-005', email: 'driver2@logistics.com', role: 'DRIVER', password_hash: '🔒 $2b$10$j8N... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
       ],
     },
   };
 
   // Apply Role-Based Data Isolation & Restrictions
   const getFilteredTableData = () => {
-    const raw = rawTableData[activeTable] || rawTableData.sessions;
+    const currentData = rawTableData[activeTable] || { query: '', columns: [], rows: [] };
 
-    if (userRole === 'ADMIN') {
-      return raw; // Full access for System Admin
-    }
-
-    if (userRole === 'TENANT_MGR') {
-      if (activeTable === 'invoices') {
-        return {
-          ...raw,
-          rows: raw.rows.filter(r => r.tenant_id.includes('Fleet A'))
-        };
-      }
-      if (activeTable === 'sessions') {
-        return {
-          ...raw,
-          rows: raw.rows.map(r => r.tenant_id.includes('11111111') ? r : {
-            session_id: r.session_id,
-            charger_id: r.charger_id,
-            vehicle_id: '🔒 [RESTRICTED: Sibling Tenant Vehicle]',
-            tenant_id: '🔒 [RESTRICTED BY RLS POLICY]',
-            start_end: 'REDACTED',
-            kwh: 'REDACTED',
-            allocated_power: r.allocated_power
-          })
-        };
-      }
-      if (activeTable === 'vehicles') {
-        return {
-          ...raw,
-          rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
-        };
-      }
-      if (activeTable === 'tenants') {
-        return {
-          ...raw,
-          rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
-        };
-      }
-      if (activeTable === 'users') {
-        return {
-          ...raw,
-          rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
-        };
-      }
-    }
-
+    // DRIVER ROLE RESTRICTION: Forbidden for tenants, invoices, users
     if (userRole === 'DRIVER') {
-      if (activeTable === 'sessions') {
-        return {
-          ...raw,
-          rows: raw.rows.map((r, idx) => idx === 0 ? r : {
-            session_id: r.session_id,
-            charger_id: 'CP-00X',
-            vehicle_id: '🔒 [RESTRICTED: Other Driver Vehicle]',
-            tenant_id: '🔒 [RESTRICTED BY RLS POLICY]',
-            start_end: 'REDACTED',
-            kwh: 'REDACTED',
-            allocated_power: 'REDACTED'
-          })
-        };
-      }
-      if (activeTable === 'vehicles') {
-        return {
-          ...raw,
-          rows: raw.rows.filter((r, idx) => idx === 0)
-        };
-      }
-      if (activeTable === 'tenants' || activeTable === 'invoices' || activeTable === 'users' || activeTable === 'chargers') {
+      if (['tenants', 'invoices', 'users'].includes(activeTable)) {
         return {
           query: `SET RLS POLICY FOR DRIVER ROLE; -- ACCESS DENIED`,
-          columns: ['status_code', 'message'],
+          columns: ['STATUS_CODE', 'MESSAGE'],
           rows: [
-            { status_code: '403 FORBIDDEN', message: '🔒 Table access restricted by PostgreSQL RLS Security Policy for DRIVER role.' }
-          ]
+            {
+              STATUS_CODE: '403 FORBIDDEN',
+              MESSAGE: `🔒 Table access restricted by PostgreSQL RLS Security Policy for DRIVER role.`,
+            },
+          ],
+          isForbidden: true,
+        };
+      }
+
+      // DRIVER ROLE RESTRICTION: Row-level filter strictly for own vehicle
+      if (activeTable === 'sessions') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.session_id.includes('s1') || r.vehicle_id.includes('v-1001')),
+        };
+      }
+      if (activeTable === 'chargers') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.charger_id === 'ch-001'),
+        };
+      }
+      if (activeTable === 'vehicles') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.vehicle_id === 'v-1001'),
         };
       }
     }
 
-    return raw;
+    // TENANT_MGR ROLE RESTRICTION: Isolates sibling competitor fleets
+    if (userRole === 'TENANT_MGR') {
+      if (activeTable === 'tenants') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.tenant_id === '11111111-1111-1111-1111-111111111111'),
+        };
+      }
+      if (activeTable === 'sessions') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.tenant_id.includes('11111111')),
+        };
+      }
+      if (activeTable === 'invoices') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.tenant_id.includes('Fleet A')),
+        };
+      }
+      if (activeTable === 'vehicles') {
+        return {
+          ...currentData,
+          rows: currentData.rows.filter(r => r.tenant_id.includes('11111111')),
+        };
+      }
+    }
+
+    // ADMIN ROLE: Returns full site-wide table representation
+    return {
+      ...currentData,
+      isForbidden: false,
+    };
   };
 
-  const current = getFilteredTableData();
+  const currentView = getFilteredTableData();
 
   return (
-    <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-6">
-      
+    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-fadeIn">
       {/* Top Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2 tracking-tight">
-            <Database className="w-6 h-6 text-cyan-400" /> PostgreSQL Database Table Representation
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Enforcing strict PostgreSQL Row-Level Security (RLS) policies for <strong className="text-cyan-300 font-bold">{userRole}</strong> role.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+            <Database className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              PostgreSQL Database Table Representation
+            </h2>
+            <p className="text-xs text-slate-400">
+              Enforcing strict PostgreSQL Row-Level Security (RLS) policies for <strong className="text-cyan-300">{userRole}</strong> role.
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-3 bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
-          <Shield className="w-4 h-4 text-cyan-400" />
-          <div>
-            <div className="font-bold text-white leading-none">RLS Context: {userRole}</div>
-            <div className="text-[10px] text-cyan-400 font-semibold">app.tenant_id isolation enforced</div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-2 font-mono">
+            <Shield className="w-3.5 h-3.5 text-cyan-400" /> RLS Context: {userRole}
+          </span>
+          {onClose && (
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-950 border border-slate-800">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Role RLS Policy Description Header */}
+      <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800/80 flex items-start gap-3">
+        <Lock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-slate-300 space-y-1">
+          <div className="font-semibold text-amber-300">
+            PostgreSQL Row-Level Security Active: As {userRole}, private sibling tenant invoices, unassigned vehicle telemetry, password hashes, and site keys are restricted/redacted.
+          </div>
+          <div className="text-[11px] text-slate-400 font-mono">
+            RLS Enforcement Query Filter: {userRole === 'DRIVER' ? 'app.tenant_id = 11111111 AND vehicle_id = v-1001' : userRole === 'TENANT_MGR' ? 'app.tenant_id = 11111111-1111-1111-1111-111111111111' : 'BYPASSRLS for site_admin_role'}
           </div>
         </div>
       </div>
 
-      {/* RLS Security Policy Banner */}
-      {userRole !== 'ADMIN' && (
-        <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl flex items-center gap-3 text-xs text-amber-300">
-          <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
-          <span>
-            <strong>PostgreSQL Row-Level Security Active:</strong> As <strong className="underline">{userRole}</strong>, private sibling tenant invoices, unassigned vehicle telemetry, password hashes, and site keys are restricted/redacted.
-          </span>
-        </div>
-      )}
-
-      {/* Table Selector Pills */}
-      <div className="flex flex-wrap gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-xs font-semibold">
-        {Object.keys(rawTableData).map((tbl) => (
+      {/* Table Selector Tabs */}
+      <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800 gap-2 overflow-x-auto">
+        {['tenants', 'chargers', 'sessions', 'vehicles', 'invoices', 'users'].map((t) => (
           <button
-            key={tbl}
-            onClick={() => setActiveTable(tbl)}
-            className={`px-4 py-2 rounded-lg transition uppercase tracking-wider font-bold flex items-center gap-1.5 ${
-              activeTable === tbl
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20'
+            key={t}
+            onClick={() => setActiveTable(t)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 ${
+              activeTable === t
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
             }`}
           >
-            <Table className="w-3.5 h-3.5" /> {tbl}
+            <Table className="w-3.5 h-3.5" /> {t}
           </button>
         ))}
       </div>
 
-      {/* Live SQL Query Command Bar */}
-      <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs font-mono flex items-center gap-3">
-        <Terminal className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-        <div className="text-slate-300 font-semibold overflow-x-auto whitespace-nowrap scrollbar-none">
-          <span className="text-cyan-400">psql&gt;</span> {current.query}
+      {/* SQL Query Preview Terminal */}
+      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/80 space-y-2 font-mono text-xs">
+        <div className="text-[10px] text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <Terminal className="w-3.5 h-3.5 text-cyan-400" /> Executing SQL Query under RLS Context:
+        </div>
+        <div className="text-cyan-300 font-medium overflow-x-auto whitespace-nowrap bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+          <span className="text-slate-500">&gt;_ psql&gt; </span>
+          {currentView.query}
         </div>
       </div>
 
-      {/* Database Table Representation Grid */}
+      {/* Database Table Output */}
       <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-slate-900 text-cyan-400 uppercase tracking-wider font-bold border-b border-slate-800">
+            <thead className="bg-slate-900 text-slate-400 uppercase font-semibold border-b border-slate-800">
               <tr>
-                {current.columns.map((col) => (
-                  <th key={col} className="p-3.5 border-r border-slate-800/60 last:border-r-0">
-                    {col}
-                  </th>
+                {currentView.columns.map((col) => (
+                  <th key={col} className="p-3 text-slate-300 font-bold">{col}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-200">
-              {current.rows.map((row, idx) => (
-                <tr key={idx} className="hover:bg-slate-900/60 transition">
-                  {current.columns.map((col) => (
-                    <td key={col} className="p-3.5 border-r border-slate-800/40 last:border-r-0">
-                      {String(row[col]).includes('RESTRICTED') || String(row[col]).includes('REDACTED') ? (
-                        <span className="text-amber-400 font-semibold flex items-center gap-1">
-                          <EyeOff className="w-3 h-3 text-amber-400" /> {row[col]}
-                        </span>
-                      ) : col === 'status' || col === 'state' ? (
-                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                          row[col] === 'Occupied' || row[col] === 'Charging'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : row[col] === 'Paused' || row[col]?.includes('Paused')
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}>
-                          {row[col]}
-                        </span>
-                      ) : col === 'priority_tier' ? (
-                        <span className="text-purple-400 font-bold">{row[col]}</span>
-                      ) : col === 'amount' ? (
-                        <span className="text-cyan-400 font-bold">{row[col]}</span>
-                      ) : (
-                        row[col]
-                      )}
+            <tbody className="divide-y divide-slate-800/80 text-slate-200">
+              {currentView.rows.map((row, idx) => (
+                <tr key={idx} className="hover:bg-slate-900/50 transition">
+                  {currentView.columns.map((col) => (
+                    <td key={col} className="p-3 whitespace-nowrap">
+                      {String(row[col])}
                     </td>
                   ))}
                 </tr>
@@ -267,12 +280,11 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
           </table>
         </div>
 
-        <div className="p-3 bg-slate-900/80 border-t border-slate-800 text-[11px] text-slate-500 flex justify-between font-sans font-medium">
-          <span>{current.rows.length} rows returned</span>
+        <div className="bg-slate-900 px-4 py-2.5 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+          <span>{currentView.rows.length} rows returned</span>
           <span>PostgreSQL 15 RLS Filter Active for {userRole}</span>
         </div>
       </div>
-
     </div>
   );
 }
