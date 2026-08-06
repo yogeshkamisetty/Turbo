@@ -29,14 +29,14 @@ export default function App() {
     'Delivery Express B': 30.0,
     'Green Transport C': 20.0,
   });
-  // Pre-populated initial power history dataset for instant live rendering
+  // Pre-populated dynamic initial power history dataset for instant wave rendering
   const initialPowerData = [
-    { time: '14:30:00', tenantA: 41.2, tenantB: 24.8, tenantC: 18.0, total: 84.0, cap: siteCapacityKw },
-    { time: '14:30:10', tenantA: 41.5, tenantB: 25.0, tenantC: 18.2, total: 84.7, cap: siteCapacityKw },
-    { time: '14:30:20', tenantA: 41.7, tenantB: 25.1, tenantC: 18.3, total: 85.1, cap: siteCapacityKw },
-    { time: '14:30:30', tenantA: 41.8, tenantB: 25.3, tenantC: 18.4, total: 85.5, cap: siteCapacityKw },
-    { time: '14:30:40', tenantA: 41.6, tenantB: 25.0, tenantC: 18.2, total: 84.8, cap: siteCapacityKw },
-    { time: '14:30:50', tenantA: 41.7, tenantB: 25.1, tenantC: 18.3, total: 85.1, cap: siteCapacityKw },
+    { time: '14:40:00', tenantA: 32.5, tenantB: 18.2, tenantC: 12.0, total: 62.7, cap: siteCapacityKw },
+    { time: '14:40:10', tenantA: 38.0, tenantB: 22.4, tenantC: 15.5, total: 75.9, cap: siteCapacityKw },
+    { time: '14:40:20', tenantA: 44.2, tenantB: 28.1, tenantC: 19.8, total: 92.1, cap: siteCapacityKw },
+    { time: '14:40:30', tenantA: 41.7, tenantB: 25.1, tenantC: 18.3, total: 85.1, cap: siteCapacityKw },
+    { time: '14:40:40', tenantA: 35.4, tenantB: 20.0, tenantC: 14.1, total: 69.5, cap: siteCapacityKw },
+    { time: '14:40:50', tenantA: 43.8, tenantB: 29.5, tenantC: 21.0, total: 94.3, cap: siteCapacityKw },
   ];
 
   const [powerHistory, setPowerHistory] = useState<any[]>(initialPowerData);
@@ -52,22 +52,24 @@ export default function App() {
     { id: 2, time: '13:18', text: 'Power supply temporarily adjusted to 11.0 kW to prioritize emergency delivery vehicle departure.', type: 'warn' },
   ]);
 
-  // Live 5-Second Real-Time Power Update Tick
+  // Live 3-Second Real-Time Wave & Surges Power Update Tick
   useEffect(() => {
+    let tickCount = 0;
     const liveInterval = setInterval(() => {
+      tickCount++;
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       setLastSocketTimestamp(Date.now());
       setCycleCount(c => c + 1);
 
       setPowerHistory(prev => {
-        const last = prev[prev.length - 1] || { tenantA: 41.7, tenantB: 25.1, tenantC: 18.3 };
-        const deltaA = Number((Math.random() * 0.8 - 0.4).toFixed(1));
-        const deltaB = Number((Math.random() * 0.6 - 0.3).toFixed(1));
-        const deltaC = Number((Math.random() * 0.4 - 0.2).toFixed(1));
+        // Dynamic sine wave modulation + stochastic fleet load surges
+        const waveA = 38.0 + 8.0 * Math.sin(tickCount * 0.4) + (Math.random() * 4 - 2);
+        const waveB = 24.0 + 6.0 * Math.cos(tickCount * 0.3) + (Math.random() * 3 - 1.5);
+        const waveC = 17.0 + 4.0 * Math.sin(tickCount * 0.5) + (Math.random() * 2 - 1.0);
 
-        const newA = Math.max(35, Math.min(45, Number((last.tenantA + deltaA).toFixed(1))));
-        const newB = Math.max(20, Math.min(32, Number((last.tenantB + deltaB).toFixed(1))));
-        const newC = Math.max(15, Math.min(22, Number((last.tenantC + deltaC).toFixed(1))));
+        const newA = Math.max(25, Math.min(48, Number(waveA.toFixed(1))));
+        const newB = Math.max(15, Math.min(35, Number(waveB.toFixed(1))));
+        const newC = Math.max(10, Math.min(25, Number(waveC.toFixed(1))));
         const newTotal = Number((newA + newB + newC).toFixed(1));
 
         return [
@@ -82,7 +84,7 @@ export default function App() {
           }
         ];
       });
-    }, 5000);
+    }, 3000);
 
     return () => clearInterval(liveInterval);
   }, [siteCapacityKw]);
