@@ -16,6 +16,9 @@ import { OptimizerClientService } from './optimizer-client/optimizer.service';
 import { AppWsGateway } from './ws/ws.gateway';
 import { SchedulerService } from './scheduler/scheduler.service';
 
+import { GridServicesService } from './grid-services/grid-services.service';
+import { CopilotService } from './grid-services/copilot.service';
+
 const entities = [
   User, Tenant, Site, Circuit, Tariff, Entitlement,
   Charger, Connector, Vehicle, Session, Allocation, ChargePromise, CapacityCredit, FairnessLedger
@@ -66,6 +69,8 @@ const entities = [
     OptimizerClientService,
     AppWsGateway,
     SchedulerService,
+    GridServicesService,
+    CopilotService,
   ],
 })
 export class AppModule {}

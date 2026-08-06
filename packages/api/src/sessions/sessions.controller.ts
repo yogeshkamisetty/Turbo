@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Session, Allocation, ChargePromise, Vehicle, Charger } from '../entities';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CopilotService } from '../grid-services/copilot.service';
 
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
@@ -13,6 +14,7 @@ export class SessionsController {
     @InjectRepository(ChargePromise) private promiseRepo: Repository<ChargePromise>,
     @InjectRepository(Vehicle) private vehicleRepo: Repository<Vehicle>,
     @InjectRepository(Charger) private chargerRepo: Repository<Charger>,
+    private copilotService: CopilotService,
   ) {}
 
   @Get()
@@ -57,28 +59,10 @@ export class SessionsController {
       take: 20,
     });
 
-    const bindingCounts: Record<string, number> = {};
-    let totalThrottledKw = 0;
-
-    for (const alloc of latestAllocations) {
-      const constr = alloc.bindingConstraint || 'Site Capacity';
-      bindingCounts[constr] = (bindingCounts[constr] || 0) + 1;
-      if (alloc.allocatedKw < 22) {
-        totalThrottledKw += (22 - alloc.allocatedKw);
-      }
-    }
-
-    const primaryBottleneck = Object.keys(bindingCounts).reduce((a, b) =>
-      bindingCounts[a] > bindingCounts[b] ? a : b, 'Site Capacity'
+    return this.copilotService.analyzeFleetWithGemini(
+      body.query || 'Why was my fleet throttled last night?',
+      latestAllocations
     );
-
-    return {
-      query: body.query || 'Why was my fleet throttled last night?',
-      summaryText: `Analysis of recent allocations indicates primary throttling was caused by '${primaryBottleneck}'. A total of ${Math.round(totalThrottledKw)} kW headroom was constrained across ${latestAllocations.length} optimization cycles to protect site transformer limits and tenant floor guarantees.`,
-      primaryBottleneck,
-      samplesAnalyzed: latestAllocations.length,
-      recommendation: 'Consider shifting non-urgent vehicle departures past 06:30 AM or upgrading site peak transformer capacity.',
-    };
   }
 
   @Post(':id/renegotiate')
