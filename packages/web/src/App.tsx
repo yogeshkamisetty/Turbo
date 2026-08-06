@@ -259,32 +259,96 @@ export default function App() {
     setCopilotLoading(false);
   };
 
-  // Filtered sessions based on role & logged in user
-  const driverSession = user?.email === 'driver2@logistics.com'
-    ? (sessions.find(s => s.vehicle?.includes('1004')) || {
-        id: 's4',
-        vehicle: 'Truck MH-12-AB-1004',
-        tenant: 'Logistics Fleet A',
-        charger: 'CP-003',
-        currentSoc: 62,
-        targetSoc: 95,
-        allocatedKw: 18.2,
-        state: 'Charging - Optimized',
-        departureTime: '05:45 AM (Tight)',
-        priorityRank: 1,
-      })
-    : (sessions.find(s => s.id === 's1') || sessions[0] || {
+  // Comprehensive Driver Profiles Dictionary mapping distinct battery charging state to every user account
+  const getUniqueDriverSession = (currentUser: any) => {
+    const userEmail = currentUser?.email || 'driver1@logistics.com';
+
+    const driverProfiles: Record<string, any> = {
+      'driver1@logistics.com': {
         id: 's1',
         vehicle: 'Van MH-12-AB-1001',
         tenant: 'Logistics Fleet A',
         charger: 'CP-001',
         currentSoc: 42,
         targetSoc: 90,
+        pluggedSoc: 15,
         allocatedKw: 12.5,
+        estTimeRemaining: '1h 45m',
         state: 'Charging - Optimized',
         departureTime: '06:00 AM',
         priorityRank: 2,
-      });
+      },
+      'driver2@logistics.com': {
+        id: 's4',
+        vehicle: 'Heavy Truck MH-12-AB-1004',
+        tenant: 'Logistics Fleet A',
+        charger: 'CP-003',
+        currentSoc: 68,
+        targetSoc: 98,
+        pluggedSoc: 20,
+        allocatedKw: 18.2,
+        estTimeRemaining: '0h 50m',
+        state: 'Charging - Optimized',
+        departureTime: '05:45 AM (Tight Priority #1)',
+        priorityRank: 1,
+      },
+      'driver3@logistics.com': {
+        id: 's2',
+        vehicle: 'Van MH-12-AB-1002',
+        tenant: 'Logistics Fleet A',
+        charger: 'CP-002',
+        currentSoc: 58,
+        targetSoc: 85,
+        pluggedSoc: 30,
+        allocatedKw: 11.0,
+        estTimeRemaining: '2h 10m',
+        state: 'Throttled (Grid Limit)',
+        departureTime: '06:30 AM',
+        priorityRank: 3,
+      },
+      'driver_express1@express.com': {
+        id: 's5',
+        vehicle: 'Express Van B1 MH-14-XY-2001',
+        tenant: 'Delivery Express B',
+        charger: 'CP-005',
+        currentSoc: 51,
+        targetSoc: 88,
+        pluggedSoc: 10,
+        allocatedKw: 14.1,
+        estTimeRemaining: '1h 20m',
+        state: 'Charging - Optimized',
+        departureTime: '06:15 AM',
+        priorityRank: 1,
+      },
+    };
+
+    if (driverProfiles[userEmail]) {
+      return driverProfiles[userEmail];
+    }
+
+    // Dynamic unique fallback profile for newly registered users
+    const vehicleName = currentUser?.assignedVehicle || `EV Asset ${currentUser?.name || 'User'}`;
+    const chargerId = `CP-00${(userEmail.length % 6) + 1}`;
+    const socVal = 35 + ((userEmail.length * 7) % 50);
+    const kwVal = Number((10.0 + ((userEmail.length * 3) % 12)).toFixed(1));
+
+    return {
+      id: `s-dynamic-${userEmail}`,
+      vehicle: vehicleName,
+      tenant: currentUser?.tenantName || 'Logistics Fleet A',
+      charger: chargerId,
+      currentSoc: socVal,
+      targetSoc: 92,
+      pluggedSoc: 12,
+      allocatedKw: kwVal,
+      estTimeRemaining: `${Math.floor((92 - socVal) / 15)}h ${((92 - socVal) % 15) * 4}m`,
+      state: 'Charging - Optimized',
+      departureTime: '06:30 AM',
+      priorityRank: 2,
+    };
+  };
+
+  const driverSession = getUniqueDriverSession(user);
 
   const tenantSessions = user?.email === 'delivery_mgr@express.com'
     ? [
@@ -849,7 +913,7 @@ export default function App() {
                     <div className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-700" style={{ width: `${driverSession.currentSoc || 42}%` }}></div>
                   </div>
                   <div className="flex justify-between text-xs text-slate-400">
-                    <span>Plugged in at 15%</span>
+                    <span>Plugged in at {driverSession.pluggedSoc || 15}%</span>
                     <span>Guaranteed Target: {driverSession.targetSoc || 90}%</span>
                   </div>
                 </div>
@@ -861,7 +925,7 @@ export default function App() {
                   </div>
                   <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-center">
                     <div className="text-xs text-slate-400">Est. Time Remaining</div>
-                    <div className="text-2xl font-black text-cyan-400 mt-1">1h 45m</div>
+                    <div className="text-2xl font-black text-cyan-400 mt-1">{driverSession.estTimeRemaining || '1h 45m'}</div>
                   </div>
                 </div>
               </div>
