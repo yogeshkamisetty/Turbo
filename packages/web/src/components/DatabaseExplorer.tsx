@@ -6,74 +6,67 @@ interface DatabaseExplorerProps {
 }
 
 export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
-  const [activeTable, setActiveTable] = useState<string>('chargers');
+  const [activeTable, setActiveTable] = useState<string>('tenants');
 
-  // Simulated live PostgreSQL table data representations
+  // Relational PostgreSQL table data representations
   const tableData: Record<string, { query: string; columns: string[]; rows: Record<string, any>[] }> = {
-    chargers: {
-      query: `SELECT ocpp_id, site_id, connector_index, status, max_kw, last_heartbeat FROM chargers ORDER BY ocpp_id;`,
-      columns: ['ocpp_id', 'site_id', 'connector_index', 'status', 'max_kw', 'last_heartbeat'],
+    tenants: {
+      query: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM tenants JOIN entitlements ON tenants.id = entitlements.tenant_id;`,
+      columns: ['tenant_id', 'company_name', 'site_id', 'biding_plan'],
       rows: [
-        { ocpp_id: 'CP-001', site_id: 'b0000000...', connector_index: 1, status: 'Occupied', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:54:10' },
-        { ocpp_id: 'CP-002', site_id: 'b0000000...', connector_index: 1, status: 'Occupied', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:54:12' },
-        { ocpp_id: 'CP-003', site_id: 'b0000000...', connector_index: 1, status: 'Occupied', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:54:15' },
-        { ocpp_id: 'CP-004', site_id: 'b0000000...', connector_index: 1, status: 'Occupied', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:54:08' },
-        { ocpp_id: 'CP-005', site_id: 'b0000000...', connector_index: 1, status: 'Available', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:54:02' },
-        { ocpp_id: 'CP-006', site_id: 'b0000000...', connector_index: 1, status: 'Available', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:54:00' },
-        { ocpp_id: 'CP-007', site_id: 'b0000000...', connector_index: 1, status: 'Available', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:53:55' },
-        { ocpp_id: 'CP-008', site_id: 'b0000000...', connector_index: 1, status: 'Available', max_kw: '22.00 kW', last_heartbeat: '2026-08-06 13:53:50' },
+        { tenant_id: '11111111-1111-1111-1111-111111111111', company_name: 'Logistics Fleet A', site_id: 'b0000000-0000...', biding_plan: '40.00 kW Guaranteed Floor' },
+        { tenant_id: '22222222-2222-2222-2222-222222222222', company_name: 'Delivery Express B', site_id: 'b0000000-0000...', biding_plan: '30.00 kW Guaranteed Floor' },
+        { tenant_id: '33333333-3333-3333-3333-333333333333', company_name: 'City Cabs C', site_id: 'b0000000-0000...', biding_plan: '20.00 kW Guaranteed Floor' },
+      ],
+    },
+    chargers: {
+      query: `SELECT id AS charger_id, site_id, ocpp_id AS ocpp_endpoint, max_kw AS max_power, status FROM chargers ORDER BY ocpp_id;`,
+      columns: ['charger_id', 'site_id', 'ocpp_endpoint', 'max_power', 'status'],
+      rows: [
+        { charger_id: 'ch-001', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-001 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
+        { charger_id: 'ch-002', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-002 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
+        { charger_id: 'ch-003', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-003 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
+        { charger_id: 'ch-004', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-004 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
+        { charger_id: 'ch-005', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-005 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
+        { charger_id: 'ch-006', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-006 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
+        { charger_id: 'ch-007', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-007 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
+        { charger_id: 'ch-008', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-008 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
       ],
     },
     sessions: {
-      query: `SELECT id, tenant_id, charger_id, current_soc, target_soc, allocated_kw, measured_kw, state, departure_time FROM sessions ORDER BY id;`,
-      columns: ['id', 'tenant', 'charger', 'current_soc', 'target_soc', 'allocated_kw', 'state', 'departure_time'],
+      query: `SELECT id AS session_id, charger_id, vehicle_id, tenant_id, start_time || ' / ' || departure_time AS start_end, delivered_kwh AS kwh, allocated_kw AS allocated_power FROM sessions ORDER BY id;`,
+      columns: ['session_id', 'charger_id', 'vehicle_id', 'tenant_id', 'start_end', 'kwh', 'allocated_power'],
       rows: [
-        { id: 's1-111111', tenant: 'Logistics Fleet A', charger: 'CP-001', current_soc: '42%', target_soc: '90%', allocated_kw: '12.5 kW', state: 'Charging', departure_time: '06:00 AM' },
-        { id: 's2-111111', tenant: 'Logistics Fleet A', charger: 'CP-002', current_soc: '58%', target_soc: '85%', allocated_kw: '11.0 kW', state: 'Charging', departure_time: '06:30 AM' },
-        { id: 's3-111111', tenant: 'Logistics Fleet A', charger: 'CP-003', current_soc: '22%', target_soc: '95%', allocated_kw: '18.2 kW', state: 'Charging', departure_time: '05:45 AM' },
-        { id: 's4-111111', tenant: 'Logistics Fleet A', charger: 'CP-004', current_soc: '35%', target_soc: '80%', allocated_kw: '0.0 kW', state: 'Paused', departure_time: '07:15 AM' },
-        { id: 's5-222222', tenant: 'Delivery Express B', charger: 'CP-005', current_soc: '65%', target_soc: '90%', allocated_kw: '14.1 kW', state: 'Charging', departure_time: '06:15 AM' },
-        { id: 's6-222222', tenant: 'Delivery Express B', charger: 'CP-006', current_soc: '71%', target_soc: '85%', allocated_kw: '11.0 kW', state: 'Charging', departure_time: '06:45 AM' },
+        { session_id: 's1-111111', charger_id: 'CP-001', vehicle_id: 'v-1001 (Van A1)', tenant_id: '11111111-1111...', start_end: '13:00 / 06:00 AM', kwh: '42.5 kWh', allocated_power: '12.5 kW' },
+        { session_id: 's2-111111', charger_id: 'CP-002', vehicle_id: 'v-1002 (Van A2)', tenant_id: '11111111-1111...', start_end: '13:05 / 06:30 AM', kwh: '38.0 kWh', allocated_power: '11.0 kW' },
+        { session_id: 's3-111111', charger_id: 'CP-003', vehicle_id: 'v-1004 (Truck A4)', tenant_id: '11111111-1111...', start_end: '13:10 / 05:45 AM', kwh: '62.0 kWh', allocated_power: '18.2 kW' },
+        { session_id: 's4-111111', charger_id: 'CP-004', vehicle_id: 'v-1003 (Van A3)', tenant_id: '11111111-1111...', start_end: '13:15 / 07:15 AM', kwh: '15.2 kWh', allocated_power: '0.0 kW (Paused)' },
+        { session_id: 's5-222222', charger_id: 'CP-005', vehicle_id: 'v-2001 (Express B1)', tenant_id: '22222222-2222...', start_end: '13:20 / 06:15 AM', kwh: '31.4 kWh', allocated_power: '14.1 kW' },
+        { session_id: 's6-222222', charger_id: 'CP-006', vehicle_id: 'v-2002 (Express B2)', tenant_id: '22222222-2222...', start_end: '13:25 / 06:45 AM', kwh: '28.9 kWh', allocated_power: '11.0 kW' },
       ],
     },
-    allocations: {
-      query: `SELECT ts, session_id, allocated_kw, tier, binding_constraint, shadow_price, reason_text FROM allocations ORDER BY ts DESC LIMIT 10;`,
-      columns: ['ts', 'session_id', 'allocated_kw', 'tier', 'binding_constraint', 'shadow_price', 'reason_text'],
+    vehicles: {
+      query: `SELECT id AS vehicle_id, tenant_id, battery_capacity_kwh AS battery_capacity, driver_name AS driver, priority_tier FROM vehicles ORDER BY id;`,
+      columns: ['vehicle_id', 'tenant_id', 'battery_capacity', 'driver', 'priority_tier'],
       rows: [
-        { ts: '13:54:00', session_id: 's1-111111', allocated_kw: '12.5 kW', tier: '2 (Cloud MILP)', binding_constraint: 'Site Capacity (100 kW)', shadow_price: '₹18.50/kW', reason_text: 'Allocated 12.5 kW under fair surplus pool' },
-        { ts: '13:54:00', session_id: 's2-111111', allocated_kw: '11.0 kW', tier: '2 (Cloud MILP)', binding_constraint: 'Site Capacity (100 kW)', shadow_price: '₹18.50/kW', reason_text: 'Allocated 11.0 kW under fair surplus pool' },
-        { ts: '13:54:00', session_id: 's3-111111', allocated_kw: '18.2 kW', tier: '2 (Cloud MILP)', binding_constraint: 'Tight Departure Window', shadow_price: '₹24.10/kW', reason_text: 'Rank #1 priority given to imminent departure' },
-        { ts: '13:54:00', session_id: 's4-111111', allocated_kw: '0.0 kW', tier: '2 (Cloud MILP)', binding_constraint: 'Min-Current Disjunction', shadow_price: '₹0.00/kW', reason_text: 'Paused to enforce IEC 61851 6A floor' },
+        { vehicle_id: 'v-1001', tenant_id: '11111111-1111...', battery_capacity: '80.00 kWh', driver: 'Driver Dave', priority_tier: 'Rank #2 (Normal)' },
+        { vehicle_id: 'v-1002', tenant_id: '11111111-1111...', battery_capacity: '80.00 kWh', driver: 'Driver Alex', priority_tier: 'Rank #3 (Flexible)' },
+        { vehicle_id: 'v-1004', tenant_id: '11111111-1111...', battery_capacity: '120.00 kWh', driver: 'Driver Sam', priority_tier: 'Rank #1 (Highest)' },
+        { vehicle_id: 'v-2001', tenant_id: '22222222-2222...', battery_capacity: '90.00 kWh', driver: 'Driver Bob', priority_tier: 'Rank #1 (Urgent)' },
       ],
     },
-    tenants: {
-      query: `SELECT id, name, created_at FROM tenants ORDER BY name;`,
-      columns: ['id', 'name', 'contracted_floor', 'created_at'],
+    invoices: {
+      query: `SELECT id AS invoice_id, tenant_id, period, total_kwh, amount FROM capacity_credits JOIN billing ON tenant_id;`,
+      columns: ['invoice_id', 'tenant_id', 'period', 'total_kwh', 'amount'],
       rows: [
-        { id: '11111111-1111-1111-1111-111111111111', name: 'Logistics Fleet A', contracted_floor: '40.00 kW', created_at: '2026-08-01 00:00:00' },
-        { id: '22222222-2222-2222-2222-222222222222', name: 'Delivery Express B', contracted_floor: '30.00 kW', created_at: '2026-08-01 00:00:00' },
-        { id: '33333333-3333-3333-3333-333333333333', name: 'City Cabs C', contracted_floor: '20.00 kW', created_at: '2026-08-01 00:00:00' },
+        { invoice_id: 'inv-2026-08A', tenant_id: '11111111-1111... (Fleet A)', period: 'Aug 2026', total_kwh: '142.50 kWh', amount: '₹2,285.50' },
+        { invoice_id: 'inv-2026-08B', tenant_id: '22222222-2222... (Express B)', period: 'Aug 2026', total_kwh: '98.20 kWh', amount: '₹1,475.00' },
+        { invoice_id: 'inv-2026-08C', tenant_id: '33333333-3333... (City Cabs)', period: 'Aug 2026', total_kwh: '75.40 kWh', amount: '₹1,130.00' },
       ],
     },
-    sites: {
-      query: `SELECT id, name, cap_kw, cap_phase_a, cap_phase_b, cap_phase_c, base_load_kw FROM sites;`,
-      columns: ['id', 'name', 'cap_kw', 'cap_phase_a', 'cap_phase_b', 'cap_phase_c', 'base_load_kw'],
-      rows: [
-        { id: 'b0000000-0000-0000-0000-000000000001', name: 'Metro Logistics Hub', cap_kw: '100.00 kW', cap_phase_a: '33.33 kW', cap_phase_b: '33.33 kW', cap_phase_c: '33.34 kW', base_load_kw: '5.00 kW' }
-      ]
-    },
-    tariffs: {
-      query: `SELECT dow, start_min, end_min, price_per_kwh, demand_charge_per_kw, carbon_gco2_per_kwh FROM tariffs;`,
-      columns: ['period', 'start_min', 'end_min', 'price_per_kwh', 'demand_charge', 'carbon_gco2'],
-      rows: [
-        { period: 'Peak Hours', start_min: 1080, end_min: 1320, price_per_kwh: '₹11.80', demand_charge: '₹15.00/kW', carbon_gco2: '650 gCO2/kWh' },
-        { period: 'Solar Peak', start_min: 600, end_min: 960, price_per_kwh: '₹5.20', demand_charge: '₹15.00/kW', carbon_gco2: '220 gCO2/kWh' },
-        { period: 'Off-Peak Night', start_min: 1320, end_min: 360, price_per_kwh: '₹4.10', demand_charge: '₹15.00/kW', carbon_gco2: '420 gCO2/kWh' },
-      ]
-    }
   };
 
-  const current = tableData[activeTable] || tableData.chargers;
+  const current = tableData[activeTable] || tableData.tenants;
 
   return (
     <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-6">
@@ -82,10 +75,10 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2 tracking-tight">
-            <Database className="w-6 h-6 text-cyan-400" /> PostgreSQL Database Representation Explorer
+            <Database className="w-6 h-6 text-cyan-400" /> PostgreSQL Database Table Representation
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Live relational table representations with Row-Level Security (RLS) policies enforced.
+            Official schema tables: Tenants, Chargers, Sessions, Vehicles, and Invoices.
           </p>
         </div>
 
@@ -104,7 +97,7 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
           <button
             key={tbl}
             onClick={() => setActiveTable(tbl)}
-            className={`px-3.5 py-2 rounded-lg transition uppercase tracking-wider font-bold flex items-center gap-1.5 ${
+            className={`px-4 py-2 rounded-lg transition uppercase tracking-wider font-bold flex items-center gap-1.5 ${
               activeTable === tbl
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -145,16 +138,16 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
                         <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
                           row[col] === 'Occupied' || row[col] === 'Charging'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : row[col] === 'Paused'
+                            : row[col] === 'Paused' || row[col]?.includes('Paused')
                             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                             : 'bg-slate-800 text-slate-300'
                         }`}>
                           {row[col]}
                         </span>
-                      ) : col === 'tier' ? (
-                        <span className="text-emerald-400 font-bold">{row[col]}</span>
-                      ) : col === 'shadow_price' ? (
-                        <span className="text-amber-300 font-bold">{row[col]}</span>
+                      ) : col === 'priority_tier' ? (
+                        <span className="text-purple-400 font-bold">{row[col]}</span>
+                      ) : col === 'amount' ? (
+                        <span className="text-cyan-400 font-bold">{row[col]}</span>
                       ) : (
                         row[col]
                       )}
