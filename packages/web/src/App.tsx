@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line } from 'recharts';
-import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle, LogOut, User } from 'lucide-react';
 import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, fetchBenchmark, createSocketConnection } from './api/client';
+import { AuthModal } from './components/AuthModal';
 
 export default function App() {
+  const [user, setUser] = useState<any>(null); // Current authenticated user session
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(true);
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
   const [tenantFilter, setTenantFilter] = useState<string>('ALL');
   const [controlTier, setControlTier] = useState<number>(2); // 2: Cloud MILP (Green), 1: Gateway Greedy (Amber), 0: Offline (Red)
@@ -16,8 +19,8 @@ export default function App() {
   const [activeConflict, setActiveConflict] = useState<any>(null);
 
   // Liveness Affordances State
-  const [sessions, setSessions] = useState<any[]>([]); // NO MOCK ARRAY DISGUISE!
-  const [powerHistory, setPowerHistory] = useState<any[]>([]); // NO FLAT MOCK LINE!
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [powerHistory, setPowerHistory] = useState<any[]>([]);
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [lastSocketTimestamp, setLastSocketTimestamp] = useState<number>(Date.now());
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
@@ -25,7 +28,6 @@ export default function App() {
   const [updatedSessionIds, setUpdatedSessionIds] = useState<Set<string>>(new Set());
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [benchmarkMetrics, setBenchmarkMetrics] = useState<any>(null);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
 
   // ACN Benchmark series
   const acnBenchmarkData = benchmarkMetrics?.series || [
@@ -54,16 +56,14 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Initialize Auth & Socket.IO Connection
+  // Initialize Socket.IO & Session when User logs in
   useEffect(() => {
-    async function initBackend() {
-      const email = role === 'ADMIN' ? 'admin@switchyard.io' : 'fleet_mgr@logistics.com';
-      await loginAsRole(email, 'password123');
+    if (!user) return;
 
+    async function loadUserData() {
       const realSessions = await fetchSessions();
       if (Array.isArray(realSessions)) {
         setSessions(realSessions);
-        if (realSessions.length > 0) setIsConnected(true);
       }
 
       const inv = await fetchInvoice();
@@ -73,17 +73,10 @@ export default function App() {
       const socket = createSocketConnection();
       
       socket.on('connect', () => {
-        setIsConnected(true);
-        addEventLog('Connected to NestJS WebSocket API Gateway', 'success');
-      });
-
-      socket.on('disconnect', () => {
-        setIsConnected(false);
-        addEventLog('Disconnected from API Gateway', 'warn');
+        addEventLog(`Connected to API Gateway as ${user.email}`, 'success');
       });
 
       socket.on('site:power_update', (data: any) => {
-        setIsConnected(true);
         setLastSocketTimestamp(Date.now());
         setControlTier(data.tier ?? 2);
         setCycleCount(c => c + 1);
@@ -110,7 +103,6 @@ export default function App() {
         setLastSocketTimestamp(Date.now());
         setSessions(prev => prev.map(s => s.id === data.sessionId ? { ...s, allocatedKw: data.allocatedKw, state: data.state } : s));
         
-        // Trigger Row Flash Animation
         setUpdatedSessionIds(prev => new Set(prev).add(data.sessionId));
         setTimeout(() => {
           setUpdatedSessionIds(prev => {
@@ -131,8 +123,22 @@ export default function App() {
       return () => { socket.disconnect(); };
     }
 
-    initBackend();
-  }, [role]);
+    loadUserData();
+  }, [user]);
+
+  const handleLoginSuccess = (loggedInUser: any) => {
+    setUser(loggedInUser);
+    setRole(loggedInUser.role || 'ADMIN');
+    setTenantFilter(loggedInUser.role === 'ADMIN' ? 'ALL' : 'Logistics Fleet A');
+    setShowAuthModal(false);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setShowAuthModal(true);
+    setSessions([]);
+    setPowerHistory([]);
+  };
 
   const addEventLog = (text: string, type: 'info' | 'warn' | 'success' = 'info') => {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -177,6 +183,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
+      {/* Show Interactive Auth Modal if not logged in */}
+      {showAuthModal && <AuthModal onLoginSuccess={handleLoginSuccess} />}
+
       {/* Top Ambient Glow Gradient */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -189,7 +198,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-              SWITCHYARD <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30">v2.0 LIVE</span>
+              SWITCHYARD <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30">v2.0 PRO</span>
             </h1>
             <p className="text-xs text-slate-400 font-medium">Grid-Aware Multi-Tenant EV Fleet Charging System</p>
           </div>
@@ -217,9 +226,8 @@ export default function App() {
           </button>
         </div>
 
-        {/* Live Liveness Affordances Header Pill */}
+        {/* Control Tier & Liveness Header Pill */}
         <div className="flex items-center space-x-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800/80 shadow-sm">
-          {/* Data-Driven Control Tier Badge */}
           <div className="flex items-center space-x-2">
             <span className="text-xs font-semibold text-slate-400">Tier:</span>
             {controlTier === 2 && (
@@ -239,39 +247,42 @@ export default function App() {
             )}
           </div>
 
-          {/* Staleness Counter */}
           <div className="text-xs text-slate-400 font-mono border-l border-slate-800 pl-3 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-cyan-400" />
             <span>Updated {secondsAgo}s ago</span>
           </div>
 
-          {/* Cycle Counter */}
           <div className="text-xs text-cyan-400 font-bold border-l border-slate-800 pl-3">
             Cycle #{cycleCount}
           </div>
         </div>
 
-        {/* User Role Selector */}
-        <div className="flex items-center bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 text-xs font-medium">
-          <button 
-            onClick={() => { setRole('ADMIN'); setTenantFilter('ALL'); }}
-            className={`px-3 py-1.5 rounded-lg transition-all ${role === 'ADMIN' ? 'bg-slate-800 text-cyan-400 shadow border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}
+        {/* Logged In User Account Badge */}
+        {user ? (
+          <div className="flex items-center space-x-3 bg-slate-900/90 p-1.5 pl-3 rounded-xl border border-slate-800">
+            <div className="flex items-center space-x-2 text-xs">
+              <User className="w-4 h-4 text-cyan-400" />
+              <div>
+                <div className="font-bold text-white leading-none">{user.name || user.email}</div>
+                <div className="text-[10px] text-cyan-400 font-semibold">{user.role}</div>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              className="p-2 rounded-lg bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 transition"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs transition"
           >
-            Admin
+            Sign In
           </button>
-          <button 
-            onClick={() => { setRole('TENANT_MGR'); setTenantFilter('Logistics Fleet A'); }}
-            className={`px-3 py-1.5 rounded-lg transition-all ${role === 'TENANT_MGR' ? 'bg-slate-800 text-cyan-400 shadow border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}
-          >
-            Fleet Mgr
-          </button>
-          <button 
-            onClick={() => { setRole('DRIVER'); setTenantFilter('Logistics Fleet A'); }}
-            className={`px-3 py-1.5 rounded-lg transition-all ${role === 'DRIVER' ? 'bg-slate-800 text-cyan-400 shadow border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}
-          >
-            Driver
-          </button>
-        </div>
+        )}
       </header>
 
       {/* Main Container */}
@@ -322,7 +333,6 @@ export default function App() {
 
             {/* Live Stacked Power Chart & Event Feed Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Stacked Area Power Graph */}
               <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                   <div>
@@ -344,7 +354,7 @@ export default function App() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                       <XAxis dataKey="time" stroke="#64748b" fontSize={11} />
                       <YAxis stroke="#64748b" fontSize={11} domain={[0, 120]} />
-                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }} />
+                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px' }} />
                       <ReferenceLine y={latestPower.cap || 100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `${latestPower.cap || 100} kW Site Limit`, fill: '#ef4444', fontSize: 12, position: 'top', fontWeight: 'bold' }} />
                       <Area type="monotone" dataKey="tenantA" stackId="1" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.5} />
                       <Area type="monotone" dataKey="tenantB" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
@@ -429,7 +439,6 @@ export default function App() {
                         </span>
                       </div>
 
-                      {/* SoC Monotonic Climbing Progress Bar */}
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs font-semibold">
                           <span className="text-slate-400">Battery SoC:</span>
@@ -446,7 +455,6 @@ export default function App() {
                           <div className="text-[10px] text-slate-400 font-medium">Allocated Rate</div>
                         </div>
 
-                        {/* D2 Receipt Trigger Button */}
                         <button
                           onClick={() => handleWhyClick(sess)}
                           className="text-xs bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow hover:shadow-cyan-500/10"
