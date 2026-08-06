@@ -256,28 +256,13 @@ export default function App() {
 
         {/* Control Tier & Liveness Header Pill */}
         <div className="flex items-center space-x-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800/80 shadow-sm">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-semibold text-slate-400">Tier:</span>
-            {controlTier === 2 && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30">
-                <ShieldCheck className="w-3.5 h-3.5" /> Tier 2: Cloud MILP
-              </span>
-            )}
-            {controlTier === 1 && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/30">
-                <AlertTriangle className="w-3.5 h-3.5" /> Tier 1: Gateway Fallback
-              </span>
-            )}
-            {controlTier === 0 && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/30">
-                <AlertCircle className="w-3.5 h-3.5" /> Tier 0: Offline Ceiling
-              </span>
-            )}
-          </div>
-
-          <div className="text-xs text-slate-400 font-mono border-l border-slate-800 pl-3 flex items-center gap-1.5">
+          <div className="text-xs text-slate-400 font-mono flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-cyan-400" />
             <span>Updated {secondsAgo}s ago</span>
+          </div>
+
+          <div className="text-xs text-cyan-400 font-bold border-l border-slate-800 pl-3">
+            Cycle #{cycleCount}
           </div>
         </div>
 
