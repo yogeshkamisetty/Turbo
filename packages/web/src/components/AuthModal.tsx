@@ -84,10 +84,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
       <div className="bg-slate-900/90 border border-slate-800 max-w-md w-full p-8 rounded-3xl shadow-2xl space-y-6 relative z-10">
         
         {/* Logo & Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20 text-white mb-1">
-            <Zap className="h-8 w-8 fill-current" />
-          </div>
+        <div className="text-center space-y-1">
           <h2 className="text-2xl font-black text-white tracking-tight">
             {authMode === 'SIGN_IN' ? 'Sign In to SWITCHYARD' : 'Create Switchyard Account'}
           </h2>
@@ -153,7 +150,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-white text-xs">Site Admin</div>
                   <div className="text-[10px] text-slate-400 font-mono">admin@switchyard.io</div>
-                  <div className="text-[10px] text-cyan-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
+                  <div className="text-[10px] text-cyan-400 font-semibold mt-0.5">Credentials Loaded</div>
                 </button>
 
                 <button
@@ -167,7 +164,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-purple-300 text-xs">Fleet A Manager</div>
                   <div className="text-[10px] text-slate-400 font-mono">fleet_mgr@logistics.com</div>
-                  <div className="text-[10px] text-purple-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
+                  <div className="text-[10px] text-purple-400 font-semibold mt-0.5">Credentials Loaded</div>
                 </button>
 
                 <button
@@ -181,7 +178,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-purple-300 text-xs">Fleet B Manager</div>
                   <div className="text-[10px] text-slate-400 font-mono">delivery_mgr@express.com</div>
-                  <div className="text-[10px] text-purple-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
+                  <div className="text-[10px] text-purple-400 font-semibold mt-0.5">Credentials Loaded</div>
                 </button>
 
                 <button
@@ -195,7 +192,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-emerald-300 text-xs">Driver Dave</div>
                   <div className="text-[10px] text-slate-400 font-mono">driver1@logistics.com</div>
-                  <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
+                  <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">Credentials Loaded</div>
                 </button>
 
                 <button
@@ -209,7 +206,7 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
                 >
                   <div className="font-extrabold text-emerald-300 text-xs">Driver Alex (Truck MH-12-AB-1004)</div>
                   <div className="text-[10px] text-slate-400 font-mono">driver2@logistics.com</div>
-                  <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">🔒 Credentials Loaded</div>
+                  <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">Credentials Loaded</div>
                 </button>
               </div>
             </div>

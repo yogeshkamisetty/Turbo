@@ -104,11 +104,11 @@ export function DatabaseExplorer({
       mysqlQuery: `SELECT id, email, role, password_hash, tenant_id FROM switchyard_db.users ORDER BY role ASC;`,
       columns: ['id', 'email', 'role', 'password_hash', 'tenant_id'],
       rows: [
-        { id: 'usr-001', email: 'admin@switchyard.io', role: 'ADMIN', password_hash: '🔒 $2b$10$e8Z... [REDACTED BY RLS]', tenant_id: 'SYSTEM_GLOBAL' },
-        { id: 'usr-002', email: 'fleet_mgr@logistics.com', role: 'TENANT_MGR', password_hash: '🔒 $2b$10$w9L... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
-        { id: 'usr-003', email: 'delivery_mgr@express.com', role: 'TENANT_MGR', password_hash: '🔒 $2b$10$x4P... [REDACTED BY RLS]', tenant_id: '22222222-2222...' },
-        { id: 'usr-004', email: 'driver1@logistics.com', role: 'DRIVER', password_hash: '🔒 $2b$10$k1M... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
-        { id: 'usr-005', email: 'driver2@logistics.com', role: 'DRIVER', password_hash: '🔒 $2b$10$j8N... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+        { id: 'usr-001', email: 'admin@switchyard.io', role: 'ADMIN', password_hash: '$2b$10$e8Z... [REDACTED BY RLS]', tenant_id: 'SYSTEM_GLOBAL' },
+        { id: 'usr-002', email: 'fleet_mgr@logistics.com', role: 'TENANT_MGR', password_hash: '$2b$10$w9L... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+        { id: 'usr-003', email: 'delivery_mgr@express.com', role: 'TENANT_MGR', password_hash: '$2b$10$x4P... [REDACTED BY RLS]', tenant_id: '22222222-2222...' },
+        { id: 'usr-004', email: 'driver1@logistics.com', role: 'DRIVER', password_hash: '$2b$10$k1M... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+        { id: 'usr-005', email: 'driver2@logistics.com', role: 'DRIVER', password_hash: '$2b$10$j8N... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
       ],
     },
   };
@@ -127,7 +127,7 @@ export function DatabaseExplorer({
           rows: [
             {
               STATUS_CODE: '403 FORBIDDEN',
-              MESSAGE: `🔒 Table access restricted by ${sqlEngine} Security Policy for DRIVER role.`,
+              MESSAGE: `Table access restricted by ${sqlEngine} Security Policy for DRIVER role.`,
             },
           ],
           isForbidden: true,
