@@ -20,31 +20,29 @@ export class AppWsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth?.token || client.handshake.query?.token as string;
-      if (!token) {
-        client.disconnect();
-        return;
+      const rawToken = client.handshake.auth?.token || client.handshake.query?.token as string;
+      if (rawToken) {
+        const cleanToken = rawToken.replace('Bearer ', '');
+        let decoded: any = null;
+        try {
+          decoded = this.jwtService.verify(cleanToken, {
+            secret: process.env.JWT_SECRET || 'super_secret_switchyard_jwt_key_2026',
+          });
+        } catch (e) {}
+
+        if (decoded) {
+          client.data.user = decoded;
+          if (decoded.role === 'ADMIN') {
+            client.join('admin');
+          }
+          if (decoded.tenantId) {
+            client.join(`tenant:${decoded.tenantId}`);
+          }
+        }
       }
-
-      const decoded = this.jwtService.verify(token.replace('Bearer ', ''), {
-        secret: process.env.JWT_SECRET || 'super_secret_switchyard_jwt_key_2026',
-      });
-
-      client.data.user = decoded;
-
-      if (decoded.role === 'ADMIN') {
-        client.join('admin');
-        this.logger.log(`Client ${client.id} joined room admin`);
-      }
-
-      if (decoded.tenantId) {
-        const tenantRoom = `tenant:${decoded.tenantId}`;
-        client.join(tenantRoom);
-        this.logger.log(`Client ${client.id} joined room ${tenantRoom}`);
-      }
-    } catch (e) {
-      this.logger.warn(`WS Connection rejected: ${e.message}`);
-      client.disconnect();
+      this.logger.log(`Client ${client.id} connected to WebSocket Gateway`);
+    } catch (err) {
+      this.logger.log(`Client ${client.id} connected (public/guest)`);
     }
   }
 
