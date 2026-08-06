@@ -4,10 +4,13 @@ import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shiel
 import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, fetchBenchmark, createSocketConnection } from './api/client';
 import { AuthModal } from './components/AuthModal';
 import { DatabaseExplorer } from './components/DatabaseExplorer';
+import { AdminControlModal } from './components/AdminControlModal';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(true);
+  const [showAdminModal, setShowAdminModal] = useState<boolean>(false);
+  const [siteCapacityKw, setSiteCapacityKw] = useState<number>(100);
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
   const [controlTier, setControlTier] = useState<number>(2);
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
@@ -327,9 +330,17 @@ export default function App() {
                 </h2>
                 <p className="text-xs text-slate-400">Total site capacity management, company power distribution & tariff conditions</p>
               </div>
-              <span className="text-xs px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold">
-                Site Capacity: 100 kW Contracted
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowAdminModal(true)}
+                  className="text-xs bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold px-4 py-2 rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 transition transform active:scale-95"
+                >
+                  <Building2 className="w-4 h-4" /> Manage Sites & Chargers
+                </button>
+                <span className="text-xs px-3 py-2 rounded-xl bg-slate-900 text-cyan-400 border border-slate-800 font-bold">
+                  Site Capacity: {siteCapacityKw} kW Contracted
+                </span>
+              </div>
             </div>
 
             {/* Top Metric Cards */}
@@ -916,6 +927,33 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Admin Control Management Center Modal */}
+      {showAdminModal && (
+        <AdminControlModal
+          onClose={() => setShowAdminModal(false)}
+          onUpdateSiteCap={(newCap) => setSiteCapacityKw(newCap)}
+          onAddCharger={(newCharger) => {
+            setSessions(prev => [
+              ...prev,
+              {
+                id: `s-${Math.random().toString().slice(2, 8)}`,
+                vehicle: `EV Asset ${newCharger.ocppId}`,
+                tenant: 'Logistics Fleet A',
+                charger: newCharger.ocppId,
+                currentSoc: 25,
+                targetSoc: 90,
+                allocatedKw: 0.0,
+                state: 'Available',
+                departureTime: '07:00 AM'
+              }
+            ]);
+          }}
+          onUpdateEntitlement={(tenant, newFloor) => {
+            // Updated entitlement floor callback
+          }}
+        />
       )}
 
     </div>
