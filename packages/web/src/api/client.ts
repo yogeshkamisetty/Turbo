@@ -33,20 +33,61 @@ export async function loginAsRole(email: string, pass: string = 'password123') {
     console.warn('API login fallback triggered for demo persona');
   }
 
-  // Demo session fallback logic
-  const role = email.includes('admin') ? 'ADMIN' : email.includes('fleet') ? 'TENANT_MGR' : 'DRIVER';
-  const name = email.includes('admin') ? 'System Admin' : email.includes('fleet') ? 'Alice Manager' : 'Driver Dave';
-  const tenantName = email.includes('admin') ? 'System Admin' : 'Logistics Fleet A';
-  
+  // 5 Unique Accounts Dictionary
+  const userMap: Record<string, any> = {
+    'admin@switchyard.io': {
+      role: 'ADMIN',
+      name: 'System Admin',
+      tenantName: 'System Global',
+      tenantId: null,
+      pass: 'admin123',
+    },
+    'fleet_mgr@logistics.com': {
+      role: 'TENANT_MGR',
+      name: 'Alice Manager',
+      tenantName: 'Logistics Fleet A',
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      pass: 'fleet123',
+    },
+    'delivery_mgr@express.com': {
+      role: 'TENANT_MGR',
+      name: 'Bob Manager',
+      tenantName: 'Delivery Express B',
+      tenantId: '22222222-2222-2222-2222-222222222222',
+      pass: 'express123',
+    },
+    'driver1@logistics.com': {
+      role: 'DRIVER',
+      name: 'Driver Dave',
+      tenantName: 'Logistics Fleet A',
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      pass: 'driver123',
+    },
+    'driver2@logistics.com': {
+      role: 'DRIVER',
+      name: 'Driver Alex',
+      tenantName: 'Logistics Fleet A',
+      tenantId: '11111111-1111-1111-1111-111111111111',
+      pass: 'driver456',
+    },
+  };
+
+  const matched = userMap[email] || {
+    role: email.includes('admin') ? 'ADMIN' : email.includes('mgr') ? 'TENANT_MGR' : 'DRIVER',
+    name: email.split('@')[0],
+    tenantName: 'Logistics Fleet A',
+    tenantId: '11111111-1111-1111-1111-111111111111',
+  };
+
   const fallbackPayload = {
     access_token: 'demo_jwt_bearer_token_' + Date.now(),
     user: {
       email,
-      sub: 'demo-user-id',
-      role,
-      name,
-      tenantName,
-      tenantId: role === 'ADMIN' ? null : '11111111-1111-1111-1111-111111111111'
+      sub: 'demo-user-id-' + Math.random().toString().slice(2, 6),
+      role: matched.role,
+      name: matched.name,
+      tenantName: matched.tenantName,
+      tenantId: matched.tenantId,
     }
   };
   setAuthToken(fallbackPayload.access_token);

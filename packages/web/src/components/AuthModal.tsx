@@ -53,44 +53,81 @@ export function AuthModal({ onLoginSuccess }: AuthModalProps) {
           <p className="text-xs text-slate-400">Grid-Aware Multi-Tenant EV Fleet Charging System</p>
         </div>
 
-        {/* Quick Demo Credentials Switcher */}
+        {/* Quick Demo Credentials Switcher (5 Unique Accounts) */}
         <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
-          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <KeyRound className="w-3.5 h-3.5 text-cyan-400" /> Select Quick Demo Persona:
+          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <span className="flex items-center gap-1.5"><KeyRound className="w-3.5 h-3.5 text-cyan-400" /> Select Demo User Account:</span>
+            <span className="text-[10px] text-cyan-400 font-mono">5 Unique Accounts</span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
             <button
               type="button"
-              onClick={() => handleQuickDemoSelect('admin@switchyard.io')}
-              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition ${
+              onClick={() => { setEmail('admin@switchyard.io'); setPassword('admin123'); }}
+              className={`p-2 rounded-xl text-left border transition ${
                 email === 'admin@switchyard.io'
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                   : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
               }`}
             >
-              Admin
+              <div className="font-extrabold text-white text-xs">Site Admin</div>
+              <div className="text-[10px] text-slate-400 font-mono">admin@switchyard.io</div>
+              <div className="text-[9px] text-cyan-400 font-mono">Pass: admin123</div>
             </button>
+
             <button
               type="button"
-              onClick={() => handleQuickDemoSelect('fleet_mgr@logistics.com')}
-              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition ${
+              onClick={() => { setEmail('fleet_mgr@logistics.com'); setPassword('fleet123'); }}
+              className={`p-2 rounded-xl text-left border transition ${
                 email === 'fleet_mgr@logistics.com'
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                   : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
               }`}
             >
-              Fleet Mgr
+              <div className="font-extrabold text-purple-300 text-xs">Fleet A Mgr</div>
+              <div className="text-[10px] text-slate-400 font-mono">fleet_mgr@logistics.com</div>
+              <div className="text-[9px] text-cyan-400 font-mono">Pass: fleet123</div>
             </button>
+
             <button
               type="button"
-              onClick={() => handleQuickDemoSelect('driver1@logistics.com')}
-              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-semibold border transition ${
-                email === 'driver1@logistics.com'
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
+              onClick={() => { setEmail('delivery_mgr@express.com'); setPassword('express123'); }}
+              className={`p-2 rounded-xl text-left border transition ${
+                email === 'delivery_mgr@express.com'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
                   : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
               }`}
             >
-              Driver
+              <div className="font-extrabold text-purple-300 text-xs">Fleet B Mgr</div>
+              <div className="text-[10px] text-slate-400 font-mono">delivery_mgr@express.com</div>
+              <div className="text-[9px] text-cyan-400 font-mono">Pass: express123</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setEmail('driver1@logistics.com'); setPassword('driver123'); }}
+              className={`p-2 rounded-xl text-left border transition ${
+                email === 'driver1@logistics.com'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <div className="font-extrabold text-emerald-300 text-xs">Driver Dave</div>
+              <div className="text-[10px] text-slate-400 font-mono">driver1@logistics.com</div>
+              <div className="text-[9px] text-cyan-400 font-mono">Pass: driver123</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setEmail('driver2@logistics.com'); setPassword('driver456'); }}
+              className={`p-2 rounded-xl text-left border transition col-span-2 ${
+                email === 'driver2@logistics.com'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm font-bold'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+              }`}
+            >
+              <div className="font-extrabold text-emerald-300 text-xs">Driver Alex (Truck MH-12-AB-1004)</div>
+              <div className="text-[10px] text-slate-400 font-mono">driver2@logistics.com</div>
+              <div className="text-[9px] text-cyan-400 font-mono">Pass: driver456</div>
             </button>
           </div>
         </div>
