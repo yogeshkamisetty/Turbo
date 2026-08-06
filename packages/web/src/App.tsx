@@ -785,7 +785,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'DB_EXPLORER' && <DatabaseExplorer />}
+        {activeTab === 'DB_EXPLORER' && <DatabaseExplorer userRole={role} />}
 
       </main>
 

@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Database, Table, Shield, Terminal, CheckCircle2, ChevronRight, RefreshCw, X, Server } from 'lucide-react';
+import { Database, Table, Shield, Terminal, CheckCircle2, ChevronRight, RefreshCw, X, Server, Lock, EyeOff } from 'lucide-react';
 
 interface DatabaseExplorerProps {
+  userRole?: 'ADMIN' | 'TENANT_MGR' | 'DRIVER';
   onClose?: () => void;
 }
 
-export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
-  const [activeTable, setActiveTable] = useState<string>('tenants');
+export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplorerProps) {
+  const [activeTable, setActiveTable] = useState<string>(
+    userRole === 'DRIVER' ? 'sessions' : userRole === 'TENANT_MGR' ? 'sessions' : 'tenants'
+  );
 
-  // Relational PostgreSQL table data representations
-  const tableData: Record<string, { query: string; columns: string[]; rows: Record<string, any>[] }> = {
+  // Full raw table data dictionary
+  const rawTableData: Record<string, { query: string; columns: string[]; rows: Record<string, any>[] }> = {
     tenants: {
       query: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM tenants JOIN entitlements ON tenants.id = entitlements.tenant_id;`,
       columns: ['tenant_id', 'company_name', 'site_id', 'biding_plan'],
@@ -29,8 +32,6 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
         { charger_id: 'ch-004', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-004 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Occupied' },
         { charger_id: 'ch-005', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-005 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
         { charger_id: 'ch-006', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-006 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
-        { charger_id: 'ch-007', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-007 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
-        { charger_id: 'ch-008', site_id: 'b0000000-0000...', ocpp_endpoint: 'CP-008 (ws://gateway:9000)', max_power: '22.00 kW', status: 'Available' },
       ],
     },
     sessions: {
@@ -66,7 +67,87 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
     },
   };
 
-  const current = tableData[activeTable] || tableData.tenants;
+  // Apply Role-Based Data Isolation & Restrictions
+  const getFilteredTableData = () => {
+    const raw = rawTableData[activeTable] || rawTableData.sessions;
+
+    if (userRole === 'ADMIN') {
+      return raw; // Full access for System Admin
+    }
+
+    if (userRole === 'TENANT_MGR') {
+      // Filter out sibling tenants' private data
+      if (activeTable === 'invoices') {
+        return {
+          ...raw,
+          rows: raw.rows.filter(r => r.tenant_id.includes('Fleet A'))
+        };
+      }
+      if (activeTable === 'sessions') {
+        return {
+          ...raw,
+          rows: raw.rows.map(r => r.tenant_id.includes('11111111') ? r : {
+            session_id: r.session_id,
+            charger_id: r.charger_id,
+            vehicle_id: '🔒 [RESTRICTED: Sibling Tenant Vehicle]',
+            tenant_id: '🔒 [RESTRICTED BY RLS POLICY]',
+            start_end: 'REDACTED',
+            kwh: 'REDACTED',
+            allocated_power: r.allocated_power
+          })
+        };
+      }
+      if (activeTable === 'vehicles') {
+        return {
+          ...raw,
+          rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
+        };
+      }
+      if (activeTable === 'tenants') {
+        return {
+          ...raw,
+          rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
+        };
+      }
+    }
+
+    if (userRole === 'DRIVER') {
+      // EV Driver single-vehicle restriction
+      if (activeTable === 'sessions') {
+        return {
+          ...raw,
+          rows: raw.rows.map((r, idx) => idx === 0 ? r : {
+            session_id: r.session_id,
+            charger_id: 'CP-00X',
+            vehicle_id: '🔒 [RESTRICTED: Other Driver Vehicle]',
+            tenant_id: '🔒 [RESTRICTED BY RLS POLICY]',
+            start_end: 'REDACTED',
+            kwh: 'REDACTED',
+            allocated_power: 'REDACTED'
+          })
+        };
+      }
+      if (activeTable === 'vehicles') {
+        return {
+          ...raw,
+          rows: raw.rows.filter((r, idx) => idx === 0)
+        };
+      }
+      if (activeTable === 'tenants' || activeTable === 'invoices') {
+        return {
+          query: `SET RLS POLICY FOR DRIVER ROLE; -- ACCESS DENIED`,
+          columns: ['status_code', 'message'],
+          rows: [
+            { status_code: '403 FORBIDDEN', message: '🔒 Table access restricted by PostgreSQL RLS Security Policy for DRIVER role.' }
+          ]
+        };
+      }
+    }
+
+    return raw;
+  };
+
+  const current = getFilteredTableData();
 
   return (
     <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl space-y-6">
@@ -78,22 +159,32 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
             <Database className="w-6 h-6 text-cyan-400" /> PostgreSQL Database Table Representation
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Official schema tables: Tenants, Chargers, Sessions, Vehicles, and Invoices.
+            Enforcing strict PostgreSQL Row-Level Security (RLS) policies for <strong className="text-cyan-300 font-bold">{userRole}</strong> role.
           </p>
         </div>
 
         <div className="flex items-center space-x-3 bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
-          <Server className="w-4 h-4 text-emerald-400" />
+          <Shield className="w-4 h-4 text-cyan-400" />
           <div>
-            <div className="font-bold text-white leading-none">PostgreSQL 15</div>
-            <div className="text-[10px] text-emerald-400 font-semibold">RLS: FORCE ROW LEVEL SECURITY</div>
+            <div className="font-bold text-white leading-none">RLS Context: {userRole}</div>
+            <div className="text-[10px] text-cyan-400 font-semibold">app.tenant_id isolation enforced</div>
           </div>
         </div>
       </div>
 
+      {/* RLS Security Policy Banner */}
+      {userRole !== 'ADMIN' && (
+        <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl flex items-center gap-3 text-xs text-amber-300">
+          <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <span>
+            <strong>PostgreSQL Row-Level Security Active:</strong> As <strong className="underline">{userRole}</strong>, private sibling tenant invoices, unassigned vehicle telemetry, and site transformer keys are restricted/redacted.
+          </span>
+        </div>
+      )}
+
       {/* Table Selector Pills */}
       <div className="flex flex-wrap gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-xs font-semibold">
-        {Object.keys(tableData).map((tbl) => (
+        {Object.keys(rawTableData).map((tbl) => (
           <button
             key={tbl}
             onClick={() => setActiveTable(tbl)}
@@ -134,7 +225,11 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
                 <tr key={idx} className="hover:bg-slate-900/60 transition">
                   {current.columns.map((col) => (
                     <td key={col} className="p-3.5 border-r border-slate-800/40 last:border-r-0">
-                      {col === 'status' || col === 'state' ? (
+                      {String(row[col]).includes('RESTRICTED') || String(row[col]).includes('REDACTED') ? (
+                        <span className="text-amber-400 font-semibold flex items-center gap-1">
+                          <EyeOff className="w-3 h-3 text-amber-400" /> {row[col]}
+                        </span>
+                      ) : col === 'status' || col === 'state' ? (
                         <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
                           row[col] === 'Occupied' || row[col] === 'Charging'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
@@ -161,7 +256,7 @@ export function DatabaseExplorer({ onClose }: DatabaseExplorerProps) {
 
         <div className="p-3 bg-slate-900/80 border-t border-slate-800 text-[11px] text-slate-500 flex justify-between font-sans font-medium">
           <span>{current.rows.length} rows returned</span>
-          <span>PostgreSQL 15 Schema: public</span>
+          <span>PostgreSQL 15 RLS Filter Active for {userRole}</span>
         </div>
       </div>
 
