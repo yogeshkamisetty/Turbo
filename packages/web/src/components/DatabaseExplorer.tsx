@@ -11,7 +11,7 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
     userRole === 'DRIVER' ? 'sessions' : userRole === 'TENANT_MGR' ? 'sessions' : 'tenants'
   );
 
-  // Full raw table data dictionary
+  // Full raw table data dictionary with sensitive fields & RLS policies
   const rawTableData: Record<string, { query: string; columns: string[]; rows: Record<string, any>[] }> = {
     tenants: {
       query: `SELECT id AS tenant_id, name AS company_name, site_id, floor_kw AS biding_plan FROM tenants JOIN entitlements ON tenants.id = entitlements.tenant_id;`,
@@ -65,6 +65,15 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
         { invoice_id: 'inv-2026-08C', tenant_id: '33333333-3333... (City Cabs)', period: 'Aug 2026', total_kwh: '75.40 kWh', amount: '₹1,130.00' },
       ],
     },
+    users: {
+      query: `SELECT id, email, role, password_hash, tenant_id FROM users ORDER BY role;`,
+      columns: ['id', 'email', 'role', 'password_hash', 'tenant_id'],
+      rows: [
+        { id: 'usr-001', email: 'admin@switchyard.io', role: 'ADMIN', password_hash: '🔒 $2b$10$e8Z... [REDACTED BY RLS]', tenant_id: 'SYSTEM_GLOBAL' },
+        { id: 'usr-002', email: 'fleet_mgr@logistics.com', role: 'TENANT_MGR', password_hash: '🔒 $2b$10$w9L... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+        { id: 'usr-003', email: 'driver1@logistics.com', role: 'DRIVER', password_hash: '🔒 $2b$10$k1M... [REDACTED BY RLS]', tenant_id: '11111111-1111...' },
+      ],
+    },
   };
 
   // Apply Role-Based Data Isolation & Restrictions
@@ -76,7 +85,6 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
     }
 
     if (userRole === 'TENANT_MGR') {
-      // Filter out sibling tenants' private data
       if (activeTable === 'invoices') {
         return {
           ...raw,
@@ -109,10 +117,15 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
           rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
         };
       }
+      if (activeTable === 'users') {
+        return {
+          ...raw,
+          rows: raw.rows.filter(r => r.tenant_id.includes('11111111'))
+        };
+      }
     }
 
     if (userRole === 'DRIVER') {
-      // EV Driver single-vehicle restriction
       if (activeTable === 'sessions') {
         return {
           ...raw,
@@ -133,7 +146,7 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
           rows: raw.rows.filter((r, idx) => idx === 0)
         };
       }
-      if (activeTable === 'tenants' || activeTable === 'invoices') {
+      if (activeTable === 'tenants' || activeTable === 'invoices' || activeTable === 'users' || activeTable === 'chargers') {
         return {
           query: `SET RLS POLICY FOR DRIVER ROLE; -- ACCESS DENIED`,
           columns: ['status_code', 'message'],
@@ -177,7 +190,7 @@ export function DatabaseExplorer({ userRole = 'ADMIN', onClose }: DatabaseExplor
         <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl flex items-center gap-3 text-xs text-amber-300">
           <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
           <span>
-            <strong>PostgreSQL Row-Level Security Active:</strong> As <strong className="underline">{userRole}</strong>, private sibling tenant invoices, unassigned vehicle telemetry, and site transformer keys are restricted/redacted.
+            <strong>PostgreSQL Row-Level Security Active:</strong> As <strong className="underline">{userRole}</strong>, private sibling tenant invoices, unassigned vehicle telemetry, password hashes, and site keys are restricted/redacted.
           </span>
         </div>
       )}
