@@ -22,6 +22,12 @@ export default function App() {
 
   // Liveness & State
   const [sessions, setSessions] = useState<any[]>([]);
+  const [registeredChargersCount, setRegisteredChargersCount] = useState<number>(8);
+  const [companyFloors, setCompanyFloors] = useState<Record<string, number>>({
+    'Logistics Fleet A': 40.0,
+    'Delivery Express B': 30.0,
+    'Green Transport C': 20.0,
+  });
   const [powerHistory, setPowerHistory] = useState<any[]>([]);
   const [cycleCount, setCycleCount] = useState<number>(0);
   const [lastSocketTimestamp, setLastSocketTimestamp] = useState<number>(Date.now());
@@ -326,13 +332,13 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Registered Chargers</div>
-                <div className="text-3xl font-black text-white mt-1.5">8 <span className="text-sm font-medium text-emerald-400">(8 Online)</span></div>
+                <div className="text-3xl font-black text-white mt-1.5">{registeredChargersCount} <span className="text-sm font-medium text-emerald-400">({registeredChargersCount} Online)</span></div>
                 <div className="text-xs text-slate-400 mt-2">100% OCPP 1.6-J Compliant</div>
               </div>
 
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Companies</div>
-                <div className="text-3xl font-black text-cyan-400 mt-1.5">3 Fleets</div>
+                <div className="text-3xl font-black text-cyan-400 mt-1.5">{Object.keys(companyFloors).length} Fleets</div>
                 <div className="text-xs text-slate-400 mt-2">D1 Entitlement Floors Active</div>
               </div>
 
@@ -389,7 +395,7 @@ export default function App() {
                       <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantA || 41.7) / 40.0) * 100)}%` }}></div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400">
-                      <span>Floor: 40.0 kW</span>
+                      <span>Floor: {(companyFloors['Logistics Fleet A'] || 40.0).toFixed(1)} kW</span>
                       <span className="text-cyan-400 font-semibold">4 Active EVs</span>
                     </div>
                   </div>
@@ -424,10 +430,10 @@ export default function App() {
                       <span className="text-2xl font-black text-white">{latestPower.tenantB || 25.1} kW</span>
                     </div>
                     <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
-                      <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantB || 25.1) / 30.0) * 100)}%` }}></div>
+                      <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantB || 25.1) / (companyFloors['Delivery Express B'] || 30.0)) * 100)}%` }}></div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400">
-                      <span>Floor: 30.0 kW</span>
+                      <span>Floor: {(companyFloors['Delivery Express B'] || 30.0).toFixed(1)} kW</span>
                       <span className="text-purple-400 font-semibold">2 Active EVs</span>
                     </div>
                   </div>
@@ -462,10 +468,10 @@ export default function App() {
                       <span className="text-2xl font-black text-white">{latestPower.tenantC || 18.3} kW</span>
                     </div>
                     <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
-                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantC || 18.3) / 20.0) * 100)}%` }}></div>
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, ((latestPower.tenantC || 18.3) / (companyFloors['Green Transport C'] || 20.0)) * 100)}%` }}></div>
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-400">
-                      <span>Floor: 20.0 kW</span>
+                      <span>Floor: {(companyFloors['Green Transport C'] || 20.0).toFixed(1)} kW</span>
                       <span className="text-amber-400 font-semibold">2 Active EVs</span>
                     </div>
                   </div>
@@ -933,23 +939,25 @@ export default function App() {
           onClose={() => setShowAdminModal(false)}
           onUpdateSiteCap={(newCap) => setSiteCapacityKw(newCap)}
           onAddCharger={(newCharger) => {
-            setSessions(prev => [
-              ...prev,
-              {
-                id: `s-${Math.random().toString().slice(2, 8)}`,
-                vehicle: `EV Asset ${newCharger.ocppId}`,
-                tenant: 'Logistics Fleet A',
-                charger: newCharger.ocppId,
-                currentSoc: 25,
-                targetSoc: 90,
-                allocatedKw: 0.0,
-                state: 'Available',
-                departureTime: '07:00 AM'
-              }
-            ]);
+            setRegisteredChargersCount(prev => prev + 1);
+            setEventFeed(prev => [{
+              id: Math.random().toString(),
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              text: `Registered new OCPP charger ${newCharger.ocppId} (${newCharger.maxKw} kW) on ${newCharger.circuit}`,
+              type: 'success'
+            }, ...prev]);
           }}
-          onUpdateEntitlement={(tenant, newFloor) => {
-            // Updated entitlement floor callback
+          onUpdateEntitlement={(tenantName, newFloor) => {
+            setCompanyFloors(prev => ({
+              ...prev,
+              [tenantName]: newFloor
+            }));
+            setEventFeed(prev => [{
+              id: Math.random().toString(),
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+              text: `Updated D1 Entitlement floor for ${tenantName} to ${newFloor} kW`,
+              type: 'info'
+            }, ...prev]);
           }}
         />
       )}
