@@ -103,9 +103,9 @@ export class SchedulerService {
     }
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async runOptimizationCycle() {
-    this.logger.log('Starting Stage B real-time optimization cycle...');
+    this.logger.log('Starting Stage B real-time optimization cycle (10s interval)...');
 
     const site = await this.siteRepo.findOne({ where: {} });
     if (!site) return;

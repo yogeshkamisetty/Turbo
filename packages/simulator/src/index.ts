@@ -26,8 +26,8 @@ for (let i = 1; i <= count; i++) {
   const charger = new ChargerSimulator(ocppId, gatewayUrl, tag, battery);
   chargers.push(charger);
 
-  // Stagger connections by 500ms
+  // Stagger vehicle arrivals by 4000ms for progressive plug-in demo
   setTimeout(() => {
     charger.connect();
-  }, (i - 1) * 500);
+  }, (i - 1) * 4000);
 }

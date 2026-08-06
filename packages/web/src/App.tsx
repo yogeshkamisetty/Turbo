@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, LineChart, Line } from 'recharts';
-import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, ArrowUpRight } from 'lucide-react';
+import { ShieldCheck, Zap, AlertTriangle, HelpCircle, FileText, BarChart3, Shield, Info, Bot, Clock, Sparkles, RefreshCw, Layers, Cpu, Radio, Terminal, AlertCircle } from 'lucide-react';
 import { loginAsRole, fetchSessions, fetchReceipt, fetchInvoice, fetchCopilotAnalysis, fetchBenchmark, createSocketConnection } from './api/client';
 
 export default function App() {
   const [role, setRole] = useState<'ADMIN' | 'TENANT_MGR' | 'DRIVER'>('ADMIN');
   const [tenantFilter, setTenantFilter] = useState<string>('ALL');
-  const [controlTier, setControlTier] = useState<number>(2); // 2: Cloud MILP, 1: Gateway Greedy, 0: Offline
+  const [controlTier, setControlTier] = useState<number>(2); // 2: Cloud MILP (Green), 1: Gateway Greedy (Amber), 0: Offline (Red)
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'LIVE' | 'BENCHMARK' | 'COPILOT'>('LIVE');
   const [showInvoiceModal, setShowInvoiceModal] = useState<boolean>(false);
@@ -15,20 +15,19 @@ export default function App() {
   const [copilotLoading, setCopilotLoading] = useState<boolean>(false);
   const [activeConflict, setActiveConflict] = useState<any>(null);
 
-  // Live state
-  const [powerHistory, setPowerHistory] = useState<any[]>([]);
+  // Liveness Affordances State
+  const [sessions, setSessions] = useState<any[]>([]); // NO MOCK ARRAY DISGUISE!
+  const [powerHistory, setPowerHistory] = useState<any[]>([]); // NO FLAT MOCK LINE!
+  const [cycleCount, setCycleCount] = useState<number>(0);
+  const [lastSocketTimestamp, setLastSocketTimestamp] = useState<number>(Date.now());
+  const [secondsAgo, setSecondsAgo] = useState<number>(0);
+  const [eventFeed, setEventFeed] = useState<{ id: string; time: string; text: string; type: 'info' | 'warn' | 'success' }[]>([]);
+  const [updatedSessionIds, setUpdatedSessionIds] = useState<Set<string>>(new Set());
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [benchmarkMetrics, setBenchmarkMetrics] = useState<any>(null);
-  const [sessions, setSessions] = useState<any[]>([
-    { id: 's1', vehicle: 'Van MH-12-AB-1001', tenant: 'Logistics Fleet A', charger: 'CP-001', currentSoc: 42, targetSoc: 90, allocatedKw: 12.5, state: 'Charging', departureTime: '06:00', rank: 1, tenantId: '11111111-1111-1111-1111-111111111111' },
-    { id: 's2', vehicle: 'Van MH-12-AB-1002', tenant: 'Logistics Fleet A', charger: 'CP-002', currentSoc: 58, targetSoc: 85, allocatedKw: 11.0, state: 'Charging', departureTime: '06:30', rank: 2, tenantId: '11111111-1111-1111-1111-111111111111' },
-    { id: 's3', vehicle: 'Truck MH-12-AB-1004', tenant: 'Logistics Fleet A', charger: 'CP-003', currentSoc: 22, targetSoc: 95, allocatedKw: 18.2, state: 'Charging', departureTime: '05:45', rank: 1, tenantId: '11111111-1111-1111-1111-111111111111' },
-    { id: 's4', vehicle: 'Van MH-12-AB-1003', tenant: 'Logistics Fleet A', charger: 'CP-004', currentSoc: 35, targetSoc: 80, allocatedKw: 0.0, state: 'Paused', departureTime: '07:15', rank: 4, tenantId: '11111111-1111-1111-1111-111111111111' },
-    { id: 's5', vehicle: 'Express MH-14-XY-2001', tenant: 'Delivery Express B', charger: 'CP-005', currentSoc: 65, targetSoc: 90, allocatedKw: 14.1, state: 'Charging', departureTime: '06:15', rank: 1, tenantId: '22222222-2222-2222-2222-222222222222' },
-    { id: 's6', vehicle: 'Express MH-14-XY-2002', tenant: 'Delivery Express B', charger: 'CP-006', currentSoc: 71, targetSoc: 85, allocatedKw: 11.0, state: 'Charging', departureTime: '06:45', rank: 2, tenantId: '22222222-2222-2222-2222-222222222222' },
-  ]);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
 
-  // ACN-Data 3-Baseline comparison series
+  // ACN Benchmark series
   const acnBenchmarkData = benchmarkMetrics?.series || [
     { time: '00:00', uncontrolled: 145, naive: 98, switchyard: 95 },
     { time: '02:00', uncontrolled: 168, naive: 100, switchyard: 96 },
@@ -37,6 +36,14 @@ export default function App() {
     { time: '08:00', uncontrolled: 65, naive: 60, switchyard: 58 },
     { time: '10:00', uncontrolled: 40, naive: 40, switchyard: 38 },
   ];
+
+  // Seconds ago timer tick
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - lastSocketTimestamp) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lastSocketTimestamp]);
 
   // Fetch benchmark data when switching to BENCHMARK tab
   useEffect(() => {
@@ -54,8 +61,9 @@ export default function App() {
       await loginAsRole(email, 'password123');
 
       const realSessions = await fetchSessions();
-      if (Array.isArray(realSessions) && realSessions.length > 0) {
+      if (Array.isArray(realSessions)) {
         setSessions(realSessions);
+        if (realSessions.length > 0) setIsConnected(true);
       }
 
       const inv = await fetchInvoice();
@@ -63,28 +71,61 @@ export default function App() {
 
       // Connect Socket.IO
       const socket = createSocketConnection();
+      
+      socket.on('connect', () => {
+        setIsConnected(true);
+        addEventLog('Connected to NestJS WebSocket API Gateway', 'success');
+      });
+
+      socket.on('disconnect', () => {
+        setIsConnected(false);
+        addEventLog('Disconnected from API Gateway', 'warn');
+      });
+
       socket.on('site:power_update', (data: any) => {
-        setControlTier(data.tier || 2);
+        setIsConnected(true);
+        setLastSocketTimestamp(Date.now());
+        setControlTier(data.tier ?? 2);
+        setCycleCount(c => c + 1);
+
         const map = data.tenantPowerMap || {};
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
         setPowerHistory(prev => [
           ...prev.slice(-20),
           {
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            tenantA: map['11111111-1111-1111-1111-111111111111'] || Math.round(data.totalAllocatedKw * 0.5),
-            tenantB: map['22222222-2222-2222-2222-222222222222'] || Math.round(data.totalAllocatedKw * 0.3),
-            tenantC: map['33333333-3333-3333-3333-333333333333'] || Math.round(data.totalAllocatedKw * 0.2),
-            total: data.totalAllocatedKw,
+            time: timeStr,
+            tenantA: map['11111111-1111-1111-1111-111111111111'] || 0,
+            tenantB: map['22222222-2222-2222-2222-222222222222'] || 0,
+            tenantC: map['33333333-3333-3333-3333-333333333333'] || 0,
+            total: data.totalAllocatedKw || 0,
             cap: data.siteCapKw || 100
           }
         ]);
+
+        addEventLog(`Optimization Cycle #${cycleCount + 1} — Total ${data.totalAllocatedKw || 0} kW allocated`, 'info');
       });
 
       socket.on('allocation:update', (data: any) => {
+        setLastSocketTimestamp(Date.now());
         setSessions(prev => prev.map(s => s.id === data.sessionId ? { ...s, allocatedKw: data.allocatedKw, state: data.state } : s));
+        
+        // Trigger Row Flash Animation
+        setUpdatedSessionIds(prev => new Set(prev).add(data.sessionId));
+        setTimeout(() => {
+          setUpdatedSessionIds(prev => {
+            const next = new Set(prev);
+            next.delete(data.sessionId);
+            return next;
+          });
+        }, 1500);
+
+        addEventLog(`Session ${data.sessionId.slice(0, 6)} allocated ${data.allocatedKw} kW (${data.state})`, 'info');
       });
 
       socket.on('promise:conflict', (data: any) => {
         setActiveConflict(data);
+        addEventLog(`D3 Charge Promise Conflict on Session ${data.sessionId.slice(0, 6)}`, 'warn');
       });
 
       return () => { socket.disconnect(); };
@@ -93,23 +134,13 @@ export default function App() {
     initBackend();
   }, [role]);
 
-  // Initial power history seed
-  useEffect(() => {
-    const initData = [];
-    const now = Date.now();
-    for (let i = 20; i >= 0; i--) {
-      const timeStr = new Date(now - i * 30000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      initData.push({
-        time: timeStr,
-        tenantA: 41.7,
-        tenantB: 25.1,
-        tenantC: 18.3,
-        total: 85.1,
-        cap: 100
-      });
-    }
-    setPowerHistory(initData);
-  }, []);
+  const addEventLog = (text: string, type: 'info' | 'warn' | 'success' = 'info') => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setEventFeed(prev => [
+      { id: Math.random().toString(), time: timeStr, text, type },
+      ...prev.slice(0, 30)
+    ]);
+  };
 
   const handleWhyClick = async (session: any) => {
     const receiptData = await fetchReceipt(session.id);
@@ -142,6 +173,8 @@ export default function App() {
     ? sessions
     : sessions.filter(s => s.tenant === tenantFilter || s.tenantId === '11111111-1111-1111-1111-111111111111');
 
+  const latestPower = powerHistory.length > 0 ? powerHistory[powerHistory.length - 1] : { total: 0, cap: 100 };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
       {/* Top Ambient Glow Gradient */}
@@ -149,14 +182,14 @@ export default function App() {
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/85 border-b border-slate-800/80 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
           <div className="p-2.5 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20 text-white">
             <Zap className="h-6 w-6 fill-current" />
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-              SWITCHYARD <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30">v2.0 PRO</span>
+              SWITCHYARD <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30">v2.0 LIVE</span>
             </h1>
             <p className="text-xs text-slate-400 font-medium">Grid-Aware Multi-Tenant EV Fleet Charging System</p>
           </div>
@@ -184,21 +217,37 @@ export default function App() {
           </button>
         </div>
 
-        {/* Fail-Safe Control Tier Status Badge */}
+        {/* Live Liveness Affordances Header Pill */}
         <div className="flex items-center space-x-3 bg-slate-900/90 px-4 py-2 rounded-xl border border-slate-800/80 shadow-sm">
-          <Cpu className="w-4 h-4 text-cyan-400 animate-pulse" />
+          {/* Data-Driven Control Tier Badge */}
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-semibold text-slate-400">Control Tier:</span>
+            <span className="text-xs font-semibold text-slate-400">Tier:</span>
             {controlTier === 2 && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/30">
                 <ShieldCheck className="w-3.5 h-3.5" /> Tier 2: Cloud MILP
               </span>
             )}
             {controlTier === 1 && (
-              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/30">
                 <AlertTriangle className="w-3.5 h-3.5" /> Tier 1: Gateway Fallback
               </span>
             )}
+            {controlTier === 0 && (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/30">
+                <AlertCircle className="w-3.5 h-3.5" /> Tier 0: Offline Ceiling
+              </span>
+            )}
+          </div>
+
+          {/* Staleness Counter */}
+          <div className="text-xs text-slate-400 font-mono border-l border-slate-800 pl-3 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Updated {secondsAgo}s ago</span>
+          </div>
+
+          {/* Cycle Counter */}
+          <div className="text-xs text-cyan-400 font-bold border-l border-slate-800 pl-3">
+            Cycle #{cycleCount}
           </div>
         </div>
 
@@ -235,10 +284,10 @@ export default function App() {
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden group hover:border-cyan-500/40 transition-all">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Site Real-Time Draw</div>
                 <div className="text-3xl font-black text-white mt-1.5 flex items-baseline gap-1">
-                  85.1 <span className="text-sm font-medium text-slate-400">kW / 100 kW</span>
+                  {latestPower.total} <span className="text-sm font-medium text-slate-400">kW / {latestPower.cap} kW</span>
                 </div>
                 <div className="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden p-0.5 border border-slate-700/50">
-                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500" style={{ width: '85.1%' }}></div>
+                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (latestPower.total / (latestPower.cap || 100)) * 100)}%` }}></div>
                 </div>
               </div>
 
@@ -255,7 +304,7 @@ export default function App() {
               <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden group hover:border-blue-500/40 transition-all">
                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Chargers</div>
                 <div className="text-3xl font-black text-white mt-1.5 flex items-baseline gap-2">
-                  {filteredSessions.length} <span className="text-xs text-amber-400 font-bold">(1 Paused in 6A Queue)</span>
+                  {filteredSessions.length} <span className="text-xs text-amber-400 font-bold">({filteredSessions.filter(s => s.state === 'Paused').length} Paused)</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-3 font-medium">IEC 61851 6A floor enforced</p>
               </div>
@@ -271,90 +320,144 @@ export default function App() {
               </div>
             </div>
 
-            {/* Live Stacked Power Chart */}
-            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <div>
-                  <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                    Live Site Power & Multi-Tenant Stack
-                  </h2>
-                  <p className="text-xs text-slate-400">Real-time fair allocation under 100 kW grid constraint</p>
+            {/* Live Stacked Power Chart & Event Feed Panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Stacked Area Power Graph */}
+              <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                      Live Site Power & Multi-Tenant Stack
+                    </h2>
+                    <p className="text-xs text-slate-400">Real-time fair allocation under 100 kW grid constraint</p>
+                  </div>
+                  <div className="flex items-center space-x-4 text-xs font-semibold">
+                    <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500"></span> Tenant A</span>
+                    <span className="flex items-center gap-1.5 text-purple-400"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500"></span> Tenant B</span>
+                    <span className="flex items-center gap-1.5 text-amber-400"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500"></span> Tenant C</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-4 text-xs font-semibold">
-                  <span className="flex items-center gap-1.5 text-cyan-400"><span className="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500"></span> Tenant A (40kW Floor)</span>
-                  <span className="flex items-center gap-1.5 text-purple-400"><span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500"></span> Tenant B (30kW Floor)</span>
-                  <span className="flex items-center gap-1.5 text-amber-400"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500"></span> Tenant C (20kW Floor)</span>
+
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={powerHistory}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="time" stroke="#64748b" fontSize={11} />
+                      <YAxis stroke="#64748b" fontSize={11} domain={[0, 120]} />
+                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }} />
+                      <ReferenceLine y={latestPower.cap || 100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `${latestPower.cap || 100} kW Site Limit`, fill: '#ef4444', fontSize: 12, position: 'top', fontWeight: 'bold' }} />
+                      <Area type="monotone" dataKey="tenantA" stackId="1" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.5} />
+                      <Area type="monotone" dataKey="tenantB" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
+                      <Area type="monotone" dataKey="tenantC" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.5} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={powerHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="time" stroke="#64748b" fontSize={11} />
-                    <YAxis stroke="#64748b" fontSize={11} domain={[0, 120]} />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }} />
-                    <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="4 4" label={{ value: '100 kW Site Limit', fill: '#ef4444', fontSize: 12, position: 'top', fontWeight: 'bold' }} />
-                    <Area type="monotone" dataKey="tenantA" stackId="1" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.5} />
-                    <Area type="monotone" dataKey="tenantB" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.5} />
-                    <Area type="monotone" dataKey="tenantC" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.5} />
-                  </AreaChart>
-                </ResponsiveContainer>
+              {/* Real-Time Live Event Feed Panel */}
+              <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Terminal className="w-4 h-4 text-cyan-400" /> Live WebSocket Event Feed
+                    </h3>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <Radio className="w-3 h-3 animate-ping" /> Streaming
+                    </span>
+                  </div>
+
+                  <div className="h-60 overflow-y-auto space-y-2 text-xs font-mono pr-1 custom-scrollbar">
+                    {eventFeed.length === 0 ? (
+                      <div className="text-slate-500 italic py-8 text-center">Awaiting incoming telemetry...</div>
+                    ) : (
+                      eventFeed.map((evt) => (
+                        <div key={evt.id} className="p-2 rounded-lg bg-slate-950/80 border border-slate-800/60 flex items-start gap-2">
+                          <span className="text-slate-500 text-[10px] whitespace-nowrap">{evt.time}</span>
+                          <span className={`leading-tight ${evt.type === 'warn' ? 'text-amber-400' : evt.type === 'success' ? 'text-emerald-400' : 'text-slate-300'}`}>
+                            {evt.text}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800/80 text-[10px] text-slate-500 flex justify-between">
+                  <span>Transport: WebSocket (Socket.IO)</span>
+                  <span>10s Optimization Interval</span>
+                </div>
               </div>
             </div>
 
             {/* Active Sessions Grid */}
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
               <h2 className="text-lg font-bold text-white mb-4 tracking-tight">Active Charger Fleet Sessions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredSessions.map((sess) => (
-                  <div key={sess.id} className="bg-slate-950/80 p-5 rounded-2xl border border-slate-800/80 hover:border-cyan-500/30 transition-all shadow-md flex flex-col justify-between space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-base tracking-tight">{sess.vehicle?.name || sess.vehicle || `Session ${sess.id}`}</span>
-                          <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-cyan-400 border border-slate-700">{sess.tenant || 'Tenant A'}</span>
-                        </div>
-                        <div className="text-xs text-slate-400 flex items-center gap-3">
-                          <span>Charger: <strong className="text-slate-200">{sess.charger?.ocppId || sess.charger || 'CP-001'}</strong></span>
-                          <span>Target: <strong className="text-slate-200">{sess.targetSoc || 90}%</strong></span>
-                        </div>
-                      </div>
-
-                      <span className={`text-xs px-3 py-1 rounded-full font-bold border shadow-sm ${
-                        sess.state === 'Charging' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10' : 'bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-amber-500/10'
-                      }`}>
-                        {sess.state || 'Charging'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-slate-400">Current Battery SoC:</span>
-                        <span className="text-cyan-400">{sess.currentSoc || sess.soc || 40}%</span>
-                      </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
-                        <div className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-500" style={{ width: `${sess.currentSoc || 40}%` }}></div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-                      <div>
-                        <div className="text-lg font-black text-cyan-400 tracking-tight">{sess.allocatedKw || 12.5} kW</div>
-                        <div className="text-[10px] text-slate-400 font-medium">Allocated Rate</div>
-                      </div>
-
-                      {/* D2 Receipt Trigger Button */}
-                      <button
-                        onClick={() => handleWhyClick(sess)}
-                        className="text-xs bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow hover:shadow-cyan-500/10"
-                      >
-                        <HelpCircle className="w-3.5 h-3.5 text-cyan-400" /> Why?
-                      </button>
-                    </div>
+              
+              {filteredSessions.length === 0 ? (
+                <div className="bg-slate-950/80 p-12 rounded-2xl border border-slate-800 text-center space-y-3">
+                  <AlertCircle className="w-8 h-8 text-slate-500 mx-auto" />
+                  <div className="text-sm font-semibold text-slate-300">No active charging sessions found</div>
+                  <div className="text-xs text-slate-500 max-w-md mx-auto">
+                    Start simulator chargers or connect physical OCPP 1.6-J hardware to populate live sessions.
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredSessions.map((sess) => (
+                    <div 
+                      key={sess.id} 
+                      className={`bg-slate-950/80 p-5 rounded-2xl border transition-all duration-500 shadow-md flex flex-col justify-between space-y-4 ${
+                        updatedSessionIds.has(sess.id) ? 'border-cyan-500 bg-cyan-500/10 shadow-cyan-500/20' : 'border-slate-800/80 hover:border-cyan-500/30'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-base tracking-tight">{sess.vehicle?.name || sess.vehicle || `Session ${sess.id.slice(0, 6)}`}</span>
+                            <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-cyan-400 border border-slate-700">{sess.tenant || 'Tenant A'}</span>
+                          </div>
+                          <div className="text-xs text-slate-400 flex items-center gap-3">
+                            <span>Charger: <strong className="text-slate-200">{sess.charger?.ocppId || sess.charger || 'CP-001'}</strong></span>
+                            <span>Target: <strong className="text-slate-200">{sess.targetSoc || 90}%</strong></span>
+                          </div>
+                        </div>
+
+                        <span className={`text-xs px-3 py-1 rounded-full font-bold border shadow-sm ${
+                          sess.state === 'Charging' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-emerald-500/10' : 'bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-amber-500/10'
+                        }`}>
+                          {sess.state || 'Charging'}
+                        </span>
+                      </div>
+
+                      {/* SoC Monotonic Climbing Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-semibold">
+                          <span className="text-slate-400">Battery SoC:</span>
+                          <span className="text-cyan-400 font-mono">{sess.currentSoc || sess.soc || 40}%</span>
+                        </div>
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden p-0.5">
+                          <div className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, sess.currentSoc || 40)}%` }}></div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                        <div>
+                          <div className="text-lg font-black text-cyan-400 tracking-tight">{sess.allocatedKw || 0} kW</div>
+                          <div className="text-[10px] text-slate-400 font-medium">Allocated Rate</div>
+                        </div>
+
+                        {/* D2 Receipt Trigger Button */}
+                        <button
+                          onClick={() => handleWhyClick(sess)}
+                          className="text-xs bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 font-semibold px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow hover:shadow-cyan-500/10"
+                        >
+                          <HelpCircle className="w-3.5 h-3.5 text-cyan-400" /> Why?
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
